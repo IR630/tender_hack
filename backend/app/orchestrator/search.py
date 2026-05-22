@@ -9,6 +9,7 @@ from app.core.models import (
     SearchResponse,
     SearchSummary,
 )
+from app.core.regions import resolve_region
 from app.query.processor import process_query
 from app.scrapers import ozon, wb, yandex_market
 from app.sources.other.search import search_other_sources
@@ -69,8 +70,9 @@ def _build_group(source: str, products: list[Product]) -> SearchGroup:
 async def run_search(request: SearchRequest) -> SearchResponse:
     started = time.perf_counter()
     processed = process_query(request.query)
+    region = resolve_region(request.region)
 
-    search_request = SearchRequest(query=processed.corrected, region=request.region)
+    search_request = SearchRequest(query=processed.corrected, region=region.id)
 
     results = await asyncio.gather(
         _safe_search(wb.scraper.search(search_request)),
@@ -91,6 +93,8 @@ async def run_search(request: SearchRequest) -> SearchResponse:
         query=SearchQuery(
             original=processed.original,
             corrected=processed.corrected,
+            region=region.id,
+            region_name=region.name,
             synonyms_used=processed.synonyms,
             took_ms=took_ms,
         ),

@@ -24,6 +24,8 @@ class Product(BaseModel):
 class SearchQuery(BaseModel):
     original: str
     corrected: str
+    region: str
+    region_name: str
     synonyms_used: list[str] = Field(default_factory=list)
     took_ms: int = 0
 
@@ -46,7 +48,7 @@ class SearchGroup(BaseModel):
 
 class SearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=500)
-    region: str | None = None
+    region: str = "moscow"
 
 
 class SearchResponse(BaseModel):

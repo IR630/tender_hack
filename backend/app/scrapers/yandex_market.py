@@ -12,6 +12,7 @@ from curl_cffi import requests as curl_requests
 from selectolax.parser import HTMLParser
 
 from app.core.models import Product, SearchRequest
+from app.core.regions import resolve_region
 from app.scrapers.base import BaseScraper
 
 logger = logging.getLogger(__name__)
@@ -482,8 +483,15 @@ def _collect_paginated_products(
     return accepted
 
 
-def _fetch_products_sync(query: str) -> list[Product]:
+def _apply_yandex_region(session: curl_requests.Session, yandex_market_id: int) -> None:
+    region_value = str(yandex_market_id)
+    session.cookies.set("yandex_gid", region_value, domain=".yandex.ru")
+    session.cookies.set("yandex_gid", region_value, domain="market.yandex.ru")
+
+
+def _fetch_products_sync(query: str, yandex_market_id: int) -> list[Product]:
     session = curl_requests.Session(impersonate="chrome120")
+    _apply_yandex_region(session, yandex_market_id)
     session.get(f"{BASE_URL}/", headers=DEFAULT_HEADERS, timeout=20)
 
     def fetch_page_html(page: int) -> str:
@@ -503,7 +511,7 @@ def _fetch_products_sync(query: str) -> list[Product]:
     return _enrich_products(products)
 
 
-async def _fetch_with_playwright(query: str) -> list[Product]:
+async def _fetch_with_playwright(query: str, yandex_market_id: int) -> list[Product]:
     try:
         from playwright.async_api import async_playwright
     except ImportError:
@@ -518,6 +526,16 @@ async def _fetch_with_playwright(query: str) -> list[Product]:
             args=["--disable-blink-features=AutomationControlled", "--no-sandbox"],
         )
         context = await browser.new_context(locale="ru-RU")
+        await context.add_cookies(
+            [
+                {
+                    "name": "yandex_gid",
+                    "value": str(yandex_market_id),
+                    "domain": ".yandex.ru",
+                    "path": "/",
+                }
+            ]
+        )
         await context.add_init_script(
             "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
         )
@@ -553,15 +571,17 @@ class YandexMarketScraper(BaseScraper):
         if not query:
             return []
 
+        region = resolve_region(request.region)
+
         try:
-            products = await asyncio.to_thread(_fetch_products_sync, query)
+            products = await asyncio.to_thread(_fetch_products_sync, query, region.yandex_market_id)
             if products:
                 return products
         except Exception:
             logger.exception("Yandex Market curl_cffi fetch failed for query=%r", query)
 
         try:
-            return await _fetch_with_playwright(query)
+            return await _fetch_with_playwright(query, region.yandex_market_id)
         except Exception:
             logger.exception("Yandex Market Playwright fallback failed for query=%r", query)
             return []

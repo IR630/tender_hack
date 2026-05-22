@@ -16,6 +16,8 @@ def test_search_returns_grouped_stub() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["query"]["original"] == "iphone 15"
+    assert payload["query"]["region"] == "moscow"
+    assert payload["query"]["region_name"] == "Москва"
     assert len(payload["groups"]) == 4
     assert {group["source"] for group in payload["groups"]} == {
         "wildberries",
@@ -23,3 +25,12 @@ def test_search_returns_grouped_stub() -> None:
         "yandex_market",
         "other",
     }
+
+
+def test_regions_endpoint() -> None:
+    response = client.get("/regions")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload[0]["id"] == "moscow"
+    assert payload[0]["name"] == "Москва"
+    assert any(region["id"] == "spb" for region in payload)
