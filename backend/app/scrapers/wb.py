@@ -22,6 +22,7 @@ import httpx
 
 from app.core.config import settings
 from app.core.models import Product, SearchRequest
+from app.core.regions import resolve_region
 from app.scrapers.base import BaseScraper
 
 logger = logging.getLogger(__name__)
@@ -40,13 +41,6 @@ BROWSER_HEADERS = {
         "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     ),
 }
-
-# WB region geo-id (``dest``). Default = Moscow; extend as needed.
-REGION_DEST = {
-    "moscow": -1257786,
-    "москва": -1257786,
-}
-DEFAULT_DEST = -1257786
 
 # How many products to return, and how many of them to enrich with full
 # characteristics. Both bounded to keep latency and request volume in check.
@@ -73,12 +67,6 @@ _HOST_HINT_RANGES: list[tuple[int, int]] = [
 
 # vol -> resolved host (or None if no host serves it). Process-wide memo.
 _basket_memo: dict[int, int | None] = {}
-
-
-def _dest_for(region: str | None) -> int:
-    if not region:
-        return DEFAULT_DEST
-    return REGION_DEST.get(region.strip().lower(), DEFAULT_DEST)
 
 
 def _price_rub(product: dict) -> int:
@@ -227,7 +215,7 @@ class WildberriesScraper(BaseScraper):
         params = {
             "query": request.query,
             "resultset": "catalog",
-            "dest": _dest_for(request.region),
+            "dest": resolve_region(request.region).wb_dest,
             "curr": "rub",
             "lang": "ru",
             "appType": 1,

@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
 
+import { DEFAULT_REGION_ID, loadStoredRegion, RegionSelector } from "./components/RegionSelector";
 import { SourceGroup } from "./components/SourceGroup";
 import type { SearchResponse } from "./types/search";
 
@@ -7,6 +8,7 @@ const SOURCE_ORDER = ["wildberries", "yandex_market", "ozon", "other"] as const;
 
 export default function App() {
   const [query, setQuery] = useState("");
+  const [region, setRegion] = useState(loadStoredRegion);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SearchResponse | null>(null);
@@ -25,7 +27,7 @@ export default function App() {
       const response = await fetch("/api/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: trimmed }),
+        body: JSON.stringify({ query: trimmed, region: region || DEFAULT_REGION_ID }),
       });
 
       if (!response.ok) {
@@ -58,7 +60,8 @@ export default function App() {
         </p>
       </header>
 
-      <form onSubmit={handleSearch} className="flex flex-col gap-3 sm:flex-row">
+      <form onSubmit={handleSearch} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <RegionSelector value={region} onChange={setRegion} />
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -93,6 +96,9 @@ export default function App() {
                 синонимы: {result.query.synonyms_used.join(", ")}
               </span>
             )}
+            <span className="rounded-full bg-slate-800 px-3 py-1">
+              регион: {result.query.region_name}
+            </span>
             <span className="rounded-full bg-slate-800 px-3 py-1">
               {result.query.took_ms} ms
             </span>

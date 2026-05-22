@@ -29,6 +29,8 @@ export interface SearchResponse {
   query: {
     original: string;
     corrected: string;
+    region: string;
+    region_name: string;
     synonyms_used: string[];
     took_ms: number;
   };

@@ -117,9 +117,3 @@ def test_price_rub_variants():
     assert wb._price_rub({"sizes": [{"price": {"basic": 5000000}}]}) == 50000
     assert wb._price_rub({"salePriceU": 199900}) == 1999
     assert wb._price_rub({"sizes": []}) == 0
-
-
-def test_dest_for_region():
-    assert wb._dest_for(None) == wb.DEFAULT_DEST
-    assert wb._dest_for("Москва") == wb.REGION_DEST["москва"]
-    assert wb._dest_for("unknown-city") == wb.DEFAULT_DEST
