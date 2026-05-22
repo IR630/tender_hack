@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 
 import { DEFAULT_REGION_ID, loadStoredRegion, RegionSelector } from "./components/RegionSelector";
+import { SearchLoader } from "./components/SearchLoader";
 import { SourceGroup } from "./components/SourceGroup";
 import type { SearchResponse } from "./types/search";
 
@@ -83,7 +84,9 @@ export default function App() {
         </p>
       )}
 
-      {result && (
+      {loading && <SearchLoader query={query} />}
+
+      {!loading && result && (
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2 text-sm">
             {result.query.corrected !== result.query.original && (
