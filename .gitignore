@@ -228,6 +228,7 @@ pnpm-debug.log*
 # Python / Backend
 backend/.venv/
 .uv/
+backend/scripts/ym_experiment_output/
 
 # Docker
 docker/searxng/limiter.toml

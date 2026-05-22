@@ -4,6 +4,7 @@ export interface Product {
   source: SourceType;
   source_domain: string;
   title: string;
+  description: string;
   price: number;
   currency: string;
   image_url: string;

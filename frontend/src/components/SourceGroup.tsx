@@ -1,3 +1,4 @@
+import { ProductCard } from "./ProductCard";
 import type { SearchGroup } from "../types/search";
 
 interface SourceGroupProps {
@@ -26,16 +27,15 @@ export function SourceGroup({ group }: SourceGroupProps) {
           Пока нет данных — модуль источника в разработке.
         </p>
       ) : (
-        <ul className="space-y-2">
-          {group.products.map((product) => (
-            <li
-              key={`${product.source}-${product.product_url}`}
-              className="rounded-lg border border-slate-800 bg-slate-950/60 p-3"
-            >
-              <p className="font-medium">{product.title}</p>
-              <p className="text-sm text-emerald-400">{formatPrice(product.price)}</p>
-            </li>
+        <ul className="space-y-3">
+          {group.products.slice(0, 10).map((product) => (
+            <ProductCard key={`${product.source}-${product.product_url}`} product={product} />
           ))}
+          {group.products.length > 10 && (
+            <p className="text-sm text-slate-400">
+              и ещё {group.products.length - 10} предложений
+            </p>
+          )}
         </ul>
       )}
     </section>

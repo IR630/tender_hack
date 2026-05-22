@@ -9,6 +9,7 @@ class Product(BaseModel):
     source: SourceType
     source_domain: str
     title: str
+    description: str = ""
     price: int
     currency: str = "RUB"
     image_url: str
