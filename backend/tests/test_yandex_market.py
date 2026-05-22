@@ -1,6 +1,6 @@
 import pytest
 
-from app.core.models import Product, SearchRequest
+from app.core.models import SearchRequest
 from app.scrapers.yandex_market import (
     STOP_SIGNAL_COUNT,
     _build_description,
@@ -76,7 +76,8 @@ CARD_HTML = """
   <div><div><span data-auto="product-spec">Диагональ экрана</span></div><div>6.78"</div></div>
   <div><div><span data-auto="product-spec">Встроенная память</span></div><div>512 ГБ</div></div>
   <div><div><span data-auto="product-spec">Оперативная память</span></div><div>12 ГБ</div></div>
-  <div><div><span data-auto="product-spec">Операционная система</span></div><div>Android 15</div></div>
+  <div><div><span data-auto="product-spec">Операционная система</span></div>
+  <div>Android 15</div></div>
 </div>
 </body></html>
 """
@@ -131,7 +132,8 @@ def test_is_similar_title() -> None:
     left = "Смартфон Apple iPhone 15 128 ГБ, Dual: nano SIM, черный"
     right = "Смартфон Apple iPhone 15 128 ГБ Dual nano SIM черный"
     assert _is_similar_title(left, right) is True
-    assert _is_similar_title(left, "Смартфон Apple iPhone 15 128 ГБ, Dual: nano SIM + eSIM, Синий") is False
+    different_variant = "Смартфон Apple iPhone 15 128 ГБ, Dual: nano SIM + eSIM, Синий"
+    assert _is_similar_title(left, different_variant) is False
     assert _is_similar_title(left, "Samsung Galaxy S24 Ultra 256 GB") is False
 
 
