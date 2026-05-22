@@ -216,3 +216,18 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Node / Frontend
+node_modules/
+.pnpm-store/
+frontend/dist/
+package-lock.json
+npm-debug.log*
+pnpm-debug.log*
+
+# Python / Backend
+backend/.venv/
+.uv/
+
+# Docker
+docker/searxng/limiter.toml

@@ -1,0 +1,23 @@
+# Default owners
+* @IR630
+
+# Frontend — Dev 1
+/frontend/ @IR630
+
+# Scrapers — Dev 2
+/backend/app/scrapers/ @IR630
+
+# 4th source — Dev 3
+/backend/app/sources/ @IR630
+
+# API, ML, orchestrator — Dev 4
+/backend/app/api/ @IR630
+/backend/app/query/ @IR630
+/backend/app/ml/ @IR630
+/backend/app/orchestrator/ @IR630
+/backend/app/core/ @IR630
+
+# Infrastructure
+/.github/ @IR630
+/docker/ @IR630
+/docs/ @IR630
