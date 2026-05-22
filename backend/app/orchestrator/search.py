@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import time
 
 from app.core.models import (
@@ -13,6 +14,8 @@ from app.query.processor import process_query
 from app.scrapers import ozon, wb, yandex_market
 from app.sources.other.search import search_other_sources
 
+logger = logging.getLogger(__name__)
+
 SOURCE_DISPLAY_NAMES = {
     "wildberries": "Wildberries",
     "ozon": "Ozon",
@@ -21,10 +24,12 @@ SOURCE_DISPLAY_NAMES = {
 }
 
 
-async def _safe_search(coro) -> list[Product]:
+async def _safe_search(source: str, coro) -> list[Product]:
+    """Run a source's search, logging (not hiding) any crash as 0 results."""
     try:
         return await coro
     except Exception:
+        logger.exception("Source %r crashed during search; treating as 0 results", source)
         return []
 
 
@@ -73,10 +78,10 @@ async def run_search(request: SearchRequest) -> SearchResponse:
     search_request = SearchRequest(query=processed.corrected, region=request.region)
 
     results = await asyncio.gather(
-        _safe_search(wb.scraper.search(search_request)),
-        _safe_search(yandex_market.scraper.search(search_request)),
-        _safe_search(ozon.scraper.search(search_request)),
-        _safe_search(search_other_sources(search_request)),
+        _safe_search("wildberries", wb.scraper.search(search_request)),
+        _safe_search("yandex_market", yandex_market.scraper.search(search_request)),
+        _safe_search("ozon", ozon.scraper.search(search_request)),
+        _safe_search("other", search_other_sources(search_request)),
     )
 
     groups = [

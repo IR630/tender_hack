@@ -173,6 +173,40 @@ async def _fetch_card_characteristics(
     return chars
 
 
+def _log_search_diagnosis(resp: httpx.Response, products: list[dict], query: object) -> None:
+    """Explain a 200-OK search response — especially when it yields no products.
+
+    WB ships an ``x-pow`` Proof-of-Work challenge header on the v4 endpoint. As
+    of the last live probe v4 still serves full results even when the challenge
+    is unsolved, but if WB tightens that (returning ``products: []`` until the
+    PoW is solved) this is where we say so explicitly instead of reporting a
+    bare "0 results".
+    """
+    pow_header = resp.headers.get("x-pow", "")
+    pow_challenged = "status=invalid" in pow_header
+    if products:
+        if pow_challenged:
+            logger.info(
+                "WB search OK: %d raw products for %r (unsolved PoW challenge "
+                "present in x-pow, but v4 served results anyway)",
+                len(products), query,
+            )
+        return
+    if pow_challenged:
+        logger.error(
+            "WB search returned 0 products for %r: unsolved Proof-of-Work "
+            "challenge (x-pow=%s...). v4 is now PoW-gated for this request and "
+            "needs a solver. See the wb-api-endpoints note.",
+            query, pow_header[:80],
+        )
+    else:
+        logger.warning(
+            "WB search returned 0 products for %r with HTTP 200 and no PoW "
+            "header — genuinely no matches, or the response shape changed.",
+            query,
+        )
+
+
 def _build_product(raw: dict, image_url: str, characteristics: dict[str, str]) -> Product | None:
     nm = raw.get("id")
     name = raw.get("name")
@@ -199,28 +233,67 @@ class WildberriesScraper(BaseScraper):
     source = "wildberries"
 
     async def _fetch_search(self, client: httpx.AsyncClient, params: dict) -> list[dict]:
-        """Call the search API, with one short retry on a 429 soft-block.
+        """Call the search API and log precisely where/why a run yields no data.
 
-        Returns ``[]`` on any transient failure (rate limit, timeout, network,
-        bad JSON) so the orchestrator degrades gracefully instead of failing.
-        Persistent rate limits are an infra concern (caching / proxies), not
-        something to burn the request budget retrying.
+        Returns ``[]`` on any failure so the orchestrator degrades gracefully,
+        but every failure mode is logged distinctly — HTTP-layer error, WAF /
+        rate-limit block, non-JSON body, PoW challenge — so a 0-results run is
+        never silent. Persistent rate limits are an infra concern (caching /
+        proxies), not something to burn the request budget retrying.
         """
+        query = params.get("query")
         for attempt in range(2):
             try:
                 resp = await client.get(SEARCH_URL, params=params)
-                resp.raise_for_status()
-                return (resp.json().get("products") or [])[:MAX_RESULTS]
-            except httpx.HTTPStatusError as exc:
-                if exc.response.status_code == 429 and attempt == 0:
-                    logger.warning("WB search rate-limited (429), retrying once")
+            except httpx.TimeoutException as exc:
+                logger.error(
+                    "WB search FAILED at request stage for %r: timeout after %ss (%r)",
+                    query, settings.scraper_timeout_seconds, exc,
+                )
+                return []
+            except httpx.HTTPError as exc:
+                logger.error(
+                    "WB search FAILED at request stage for %r: network error %r",
+                    query, exc,
+                )
+                return []
+
+            if resp.status_code == 429:
+                if attempt == 0:
+                    logger.warning(
+                        "WB search rate-limited (HTTP 429) for %r, retrying once...", query
+                    )
                     await asyncio.sleep(0.7)
                     continue
-                logger.warning("WB search failed: %s", exc)
+                logger.error(
+                    "WB search BLOCKED for %r: HTTP 429 after retry. WB's WAF is "
+                    "rejecting this client — most likely the TLS fingerprint "
+                    "(plain httpx is always 429'd here, while "
+                    "curl_cffi(impersonate='chrome') passes), or an IP rate-limit "
+                    "/ non-RU IP. This is the current cause of 0 Wildberries "
+                    "results. See the wb-api-endpoints note.",
+                    query,
+                )
                 return []
-            except (httpx.HTTPError, ValueError) as exc:
-                logger.warning("WB search failed: %s", exc)
+            if resp.status_code != 200:
+                logger.error(
+                    "WB search FAILED for %r: unexpected HTTP %s", query, resp.status_code
+                )
                 return []
+
+            try:
+                payload = resp.json()
+            except ValueError as exc:
+                logger.error(
+                    "WB search FAILED at parse stage for %r: HTTP 200 but body is "
+                    "not JSON (%s); first 200 chars: %r",
+                    query, exc, resp.text[:200],
+                )
+                return []
+
+            products = (payload.get("products") or [])[:MAX_RESULTS]
+            _log_search_diagnosis(resp, products, query)
+            return products
         return []
 
     async def search(self, request: SearchRequest) -> list[Product]:
@@ -239,6 +312,7 @@ class WildberriesScraper(BaseScraper):
         ) as client:
             raw_products = await self._fetch_search(client, params)
             if not raw_products:
+                # _fetch_search already logged the precise reason.
                 return []
 
             sem = asyncio.Semaphore(_MAX_CONCURRENCY)
@@ -262,7 +336,17 @@ class WildberriesScraper(BaseScraper):
             )
 
         products = [p for p in results if p is not None]
-        logger.info("WB scraper: %d products for query %r", len(products), request.query)
+        usable = sum(
+            1 for r in raw_products
+            if r.get("id") and r.get("name") and _price_rub(r) > 0
+        )
+        missing_image = sum(1 for p in products if not p.image_url)
+        logger.info(
+            "WB scraper funnel for %r: %d raw -> %d usable (%d dropped: missing "
+            "id/name/price) -> %d returned (%d without image: basket host unresolved)",
+            request.query, len(raw_products), usable,
+            len(raw_products) - usable, len(products), missing_image,
+        )
         return products
 
 
