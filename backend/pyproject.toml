@@ -28,8 +28,9 @@ dev = [
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["."]
+addopts = "-m 'not integration'"
 markers = [
-    "integration: live network tests",
+    "integration: live network tests (run with: pytest -m integration)",
 ]
 
 [tool.ruff]
