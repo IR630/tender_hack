@@ -66,13 +66,13 @@ export function RegionSelector({ value, onChange }: RegionSelectorProps) {
     (value === DEFAULT_REGION_ID ? "Москва" : value);
 
   return (
-    <label className="flex shrink-0 flex-col gap-1 sm:w-52">
-      <span className="text-xs uppercase tracking-wide text-slate-400">Регион</span>
+    <label className="flex shrink-0 items-center gap-2">
+      <span className="hidden text-xs uppercase tracking-label text-muted sm:inline">Регион</span>
       <select
         value={value}
         onChange={(event) => handleChange(event.target.value)}
         aria-label={`Регион: ${selectedName}`}
-        className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 outline-none ring-emerald-500 focus:ring-2"
+        className="rounded-input border border-rule-2 bg-paper px-3 py-2 text-sm text-ink outline-none transition-colors hover:border-ink-2 focus-visible:border-ink focus-visible:ring-2 focus-visible:ring-focus/60"
       >
         {regions.length > 0 ? (
           regions.map((region) => (
