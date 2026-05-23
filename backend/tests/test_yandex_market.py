@@ -211,6 +211,54 @@ def test_collect_paginated_products_stops_on_garbage() -> None:
     assert len(products) == 1
 
 
+_UNIQUE_BRANDS = (
+    "Apple", "Samsung", "Xiaomi", "Realme", "Honor", "Vivo", "Oppo",
+    "Tecno", "Infinix", "Nokia", "Sony", "Motorola", "Asus", "Google",
+    "OnePlus", "Huawei", "Poco", "ZTE", "Lenovo", "BQ", "Nothing",
+    "Doogee", "Ulefone", "Blackview", "Cubot",
+)
+
+
+def _unique_phone_article(index: int) -> str:
+    brand = _UNIQUE_BRANDS[index % len(_UNIQUE_BRANDS)]
+    return _product_html(
+        f"Смартфон {brand} модель-{index} {(index + 1) * 16} ГБ цвет-{index}",
+        f"/card/phone/{index}",
+    ).replace("<html><body>", "").replace("</body></html>", "")
+
+
+def test_collect_paginated_products_caps_at_max_results() -> None:
+    from app.scrapers.yandex_market import MAX_RESULTS
+
+    articles = "".join(_unique_phone_article(i) for i in range(25))
+    page_html = f"<html><body>{articles}</body></html>"
+
+    def fetch(page: int) -> str:
+        return page_html if page == 1 else ""
+
+    products = _collect_paginated_products(fetch, "телефон", max_pages=3)
+    assert len(products) == MAX_RESULTS == 20
+    # Order is preserved (first 20 of the input feed).
+    for index, product in enumerate(products):
+        assert product.product_url.endswith(f"/card/phone/{index}")
+
+
+def test_collect_paginated_products_caps_across_pages() -> None:
+    from app.scrapers.yandex_market import MAX_RESULTS
+
+    def _page(start: int, count: int) -> str:
+        articles = "".join(_unique_phone_article(start + i) for i in range(count))
+        return f"<html><body>{articles}</body></html>"
+
+    pages = {1: _page(0, 12), 2: _page(12, 12), 3: _page(24, 12)}
+
+    def fetch(page: int) -> str:
+        return pages.get(page, "")
+
+    products = _collect_paginated_products(fetch, "телефон", max_pages=3)
+    assert len(products) == MAX_RESULTS == 20
+
+
 def test_collect_paginated_products_keeps_going_while_relevant() -> None:
     pages = {
         1: _product_html("Смартфон Apple iPhone 15 128 GB черный", "/card/iphone-15-128-black"),

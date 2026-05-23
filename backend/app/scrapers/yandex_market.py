@@ -34,6 +34,7 @@ DEFAULT_HEADERS = {
 PAGE_DELAY_SEC = 0.8
 CARD_FETCH_WORKERS = 4
 CARD_FETCH_TIMEOUT = 30
+MAX_RESULTS = 20
 
 # Stub heuristics — replace with ML/ranking later.
 GARBAGE_KEYWORDS = (
@@ -523,7 +524,15 @@ def _collect_paginated_products(
             )
             break
 
-    return accepted
+        if len(accepted) >= MAX_RESULTS:
+            logger.info(
+                "Yandex Market stop at page=%s: reached MAX_RESULTS=%s",
+                page,
+                MAX_RESULTS,
+            )
+            break
+
+    return accepted[:MAX_RESULTS]
 
 
 def _cache_key(region: str, query: str) -> str:
