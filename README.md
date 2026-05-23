@@ -49,6 +49,9 @@ cd frontend && pnpm install && pnpm dev
 - [Условия хакатона](task.md)
 - [Contributing](docs/CONTRIBUTING.md)
 - [Ограничения хакатона](docs/ARCHITECTURE_CONSTRAINTS.md)
+- [WB scraper — реализация](docs/wb-scraper-implementation.md)
+- [Ozon scraper — реализация](docs/ozon-scraper-implementation.md)
+- [Ozon — гибридный демо-стенд](docs/ozon-hybrid-demo.md)
 
 ## Стек
 
