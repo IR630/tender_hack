@@ -173,6 +173,7 @@ def test_is_similar_title() -> None:
 def test_is_garbage_listing() -> None:
     assert _is_garbage_listing("Чехол для iPhone 15", "iphone 15") is True
     assert _is_garbage_listing("Смартфон Apple iPhone 15 128 GB", "iphone 15") is False
+    assert _is_garbage_listing("Смартфон Apple iPhone 15 128 GB", "айфон") is False
     assert _is_garbage_listing("Набор отверток Bosch", "iphone 15") is True
     assert _is_garbage_listing("Смартфон realme Note 60x 3/64 ГБ", "телефон") is False
     assert _is_garbage_listing("Набор отверток Bosch", "телефон") is True

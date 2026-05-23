@@ -4,7 +4,16 @@ from other_public_scraper.config import CATEGORY_PROTOTYPES
 from other_public_scraper.ml.relevance_filter import cosine_similarity_batch
 
 _TIRE_QUERY_HINTS = ("шин", "резин", "tyre", "tire", "колес")
-_ORGTECH_QUERY_HINTS = ("ноутбук", "принтер", "монитор", "айфон", "iphone", "компьютер")
+_ORGTECH_QUERY_HINTS = (
+    "ноутбук",
+    "принтер",
+    "монитор",
+    "айфон",
+    "iphone",
+    "компьютер",
+    "ипхон",
+    "ипон",
+)
 
 
 def classify_query(query: str) -> str:

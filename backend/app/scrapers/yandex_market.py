@@ -59,6 +59,8 @@ QUERY_STOP_WORDS = frozenset(
 QUERY_TOKEN_ALIASES: dict[str, tuple[str, ...]] = {
     "телефон": ("телефон", "смартфон", "smartphone", "phone", "iphone", "айфон", "mobile"),
     "смартфон": ("смартфон", "телефон", "smartphone", "phone", "iphone", "айфон"),
+    "айфон": ("айфон", "iphone", "apple", "смартфон", "телефон", "smartphone"),
+    "iphone": ("iphone", "айфон", "apple", "смартфон", "телефон", "smartphone"),
     "ноутбук": ("ноутбук", "laptop", "notebook", "macbook"),
     "шины": ("шины", "шина", "tyre", "tire", "резин"),
     "очки": ("очки", "очков", "оправ", "ray-ban", "ray ban"),
