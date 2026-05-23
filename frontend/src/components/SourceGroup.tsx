@@ -5,6 +5,7 @@ import type { SearchGroup } from "../types/search";
 
 interface SourceGroupProps {
   group: SearchGroup;
+  pending?: boolean;
 }
 
 function formatPrice(price: number | null): string {
@@ -28,7 +29,7 @@ function productLabel(count: number): string {
   return "товаров";
 }
 
-export function SourceGroup({ group }: SourceGroupProps) {
+export function SourceGroup({ group, pending = false }: SourceGroupProps) {
   const totalCount = Math.max(group.count, group.products.length);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const shownCount = Math.min(visibleCount, group.products.length);
@@ -46,11 +47,30 @@ export function SourceGroup({ group }: SourceGroupProps) {
       <header className="mb-4 flex items-baseline justify-between gap-3 border-b border-rule pb-3">
         <h2 className="text-base font-semibold tracking-display text-ink">{group.display_name}</h2>
         <span className="tnum shrink-0 text-sm text-muted">
-          {group.count} · от <span className="text-ink-2">{formatPrice(group.min_price)}</span>
+          {pending ? (
+            "ищем…"
+          ) : (
+            <>
+              {group.count} · от <span className="text-ink-2">{formatPrice(group.min_price)}</span>
+            </>
+          )}
         </span>
       </header>
 
-      {group.products.length === 0 ? (
+      {pending && group.products.length === 0 ? (
+        <ul className="space-y-3" aria-hidden="true">
+          {[0, 1].map((row) => (
+            <li key={row} className="flex gap-3 rounded-input border border-rule bg-paper p-3">
+              <div className="h-16 w-16 shrink-0 rounded-input bg-paper-3 motion-safe:animate-pulse" />
+              <div className="flex-1 space-y-2 py-1.5">
+                <div className="h-3 w-3/4 rounded bg-paper-3 motion-safe:animate-pulse" />
+                <div className="h-3 w-2/5 rounded bg-paper-3 motion-safe:animate-pulse" />
+                <div className="h-3 w-1/4 rounded bg-paper-3 motion-safe:animate-pulse" />
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : group.products.length === 0 ? (
         <div className="text-sm">
           {group.status === "blocked_by_waf" ? (
             <p className="rounded-input border border-rule-2 bg-paper px-3 py-2 text-ink-2">

@@ -4,6 +4,7 @@ import { DEFAULT_REGION_ID, loadStoredRegion, RegionSelector } from "./component
 import { SearchProgress } from "./components/SearchProgress";
 import { SourceGroup } from "./components/SourceGroup";
 import type {
+  SearchGroup,
   SearchResponse,
   SearchTaskCreateResponse,
   SearchTaskStatusResponse,
@@ -12,9 +13,37 @@ import { SEARCH_POLL_INTERVAL_MS } from "./types/search";
 
 const SOURCE_ORDER = ["wildberries", "yandex_market", "ozon", "other"] as const;
 
+const SOURCE_NAMES: Record<(typeof SOURCE_ORDER)[number], string> = {
+  wildberries: "Wildberries",
+  yandex_market: "Яндекс Маркет",
+  ozon: "Ozon",
+  other: "Другие",
+};
+
+const GRID_REVEAL_MS = 3000;
+
 function orderGroups(groups: SearchResponse["groups"]) {
   return SOURCE_ORDER.map((source) => groups.find((group) => group.source === source)).filter(
     (group): group is NonNullable<typeof group> => Boolean(group),
+  );
+}
+
+// Always render all four source slots in a fixed order; fill the ones that
+// haven't returned yet with an empty placeholder so the 2×2 grid never reflows.
+function buildFixedGroups(groups: SearchGroup[]): SearchGroup[] {
+  const bySource = new Map(groups.map((group) => [group.source, group]));
+  return SOURCE_ORDER.map(
+    (source) =>
+      bySource.get(source) ?? {
+        source,
+        display_name: SOURCE_NAMES[source],
+        count: 0,
+        min_price: null,
+        domains: [],
+        products: [],
+        error: null,
+        status: null,
+      },
   );
 }
 
@@ -32,17 +61,38 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SearchResponse | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [searchStarted, setSearchStarted] = useState(false);
+  const [gridRevealed, setGridRevealed] = useState(false);
   const pollRef = useRef<number | null>(null);
+  const revealRef = useRef<number | null>(null);
   const mainRef = useRef<HTMLElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     return () => {
       if (pollRef.current !== null) {
         window.clearInterval(pollRef.current);
       }
+      if (revealRef.current !== null) {
+        window.clearTimeout(revealRef.current);
+      }
     };
   }, []);
+
+  // once the spinner's 3s elapse and the grid reveals, bring the results
+  // (stats strip + source blocks) up to the top of the viewport
+  useEffect(() => {
+    if (!gridRevealed) {
+      return;
+    }
+    const target = resultsRef.current;
+    if (!target) {
+      return;
+    }
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    target.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+  }, [gridRevealed]);
 
   function stopPolling() {
     if (pollRef.current !== null) {
@@ -105,6 +155,15 @@ export default function App() {
     setResult(null);
     setStatusMessage("Запуск поиска…");
 
+    // Strict reveal: spinner only for the first 3s, then the fixed 2×2 grid —
+    // regardless of how fast (or slow) the sources come back.
+    setSearchStarted(true);
+    setGridRevealed(false);
+    if (revealRef.current !== null) {
+      window.clearTimeout(revealRef.current);
+    }
+    revealRef.current = window.setTimeout(() => setGridRevealed(true), GRID_REVEAL_MS);
+
     try {
       const response = await fetch("/api/search", {
         method: "POST",
@@ -138,6 +197,16 @@ export default function App() {
   const orderedGroups = result ? orderGroups(result.groups) : [];
   const summary = result?.summary;
   const hasSummary = Boolean(!loading && result && summary && summary.total_found > 0);
+  const fixedGroups = buildFixedGroups(orderedGroups);
+  const presentSources = new Set(orderedGroups.map((group) => group.source));
+  const showGrid = searchStarted && gridRevealed;
+  const loaderPhase: "centered" | "docked" | "hidden" = !searchStarted
+    ? "hidden"
+    : !gridRevealed
+      ? "centered"
+      : loading
+        ? "docked"
+        : "hidden";
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -193,14 +262,13 @@ export default function App() {
         <SearchProgress
           mainRef={mainRef}
           formRef={formRef}
-          loading={loading}
-          hasPartial={orderedGroups.length > 0}
+          phase={loaderPhase}
           query={query}
           statusMessage={statusMessage}
         />
 
-        {(loading || result) && orderedGroups.length > 0 && (
-          <div className="mt-12 space-y-8">
+        {showGrid && (
+          <div ref={resultsRef} className="mt-12 scroll-mt-24 space-y-8">
             {hasSummary && summary && (
               <section className="border-y border-rule py-5">
                 <dl className="flex flex-wrap items-end gap-x-10 gap-y-4">
@@ -254,8 +322,12 @@ export default function App() {
             )}
 
             <div className="grid gap-5 md:grid-cols-2">
-              {orderedGroups.map((group) => (
-                <SourceGroup key={group.source} group={group} />
+              {fixedGroups.map((group) => (
+                <SourceGroup
+                  key={group.source}
+                  group={group}
+                  pending={loading && !presentSources.has(group.source)}
+                />
               ))}
             </div>
           </div>
