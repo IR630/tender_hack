@@ -572,7 +572,7 @@ def _fetch_products_sync(query: str, yandex_market_id: int) -> list[Product]:
             import time
 
             time.sleep(PAGE_DELAY_SEC)
-        search_url = f"{BASE_URL}/search?text={quote_plus(query)}&page={page}"
+        search_url = f"{BASE_URL}/search?text={quote_plus(query)}&page={page}&lr={yandex_market_id}"
         response = session.get(search_url, headers=DEFAULT_HEADERS, timeout=25)
         response.raise_for_status()
         return response.text
@@ -617,7 +617,7 @@ async def _fetch_with_playwright(query: str, yandex_market_id: int) -> list[Prod
         await page.wait_for_timeout(1500)
 
         for page_num in range(1, settings.ym_search_max_pages + 1):
-            search_url = f"{BASE_URL}/search?text={quote_plus(query)}&page={page_num}"
+            search_url = f"{BASE_URL}/search?text={quote_plus(query)}&page={page_num}&lr={yandex_market_id}"
             await page.goto(search_url, wait_until="networkidle", timeout=60000)
             html = await page.content()
             if _is_blocked(html):

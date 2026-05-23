@@ -308,14 +308,27 @@ async def _collect_listing_grid_products(
 
 
 async def _search_once(query: str, region: str) -> list[OtherExtractResult]:
-    _ = region
+    from app.core.regions import resolve_region
+
+    region_obj = resolve_region(region)
+    if region_obj.id != "moscow":
+        geo_query = f"{query} {region_obj.search_keyword} доставка".strip()
+    else:
+        geo_query = query
+
     diag = reset_diagnostics(query)
     t0 = time.perf_counter()
     category = classify_query(query)
-    logger.info("other_search_start query=%r region=%s category=%s", query, region, category)
-    
-    live_hits = await search_live_urls_expanded(
+    logger.info(
+        "other_search_start query=%r geo_query=%r region=%s category=%s",
         query,
+        geo_query,
+        region,
+        category,
+    )
+
+    live_hits = await search_live_urls_expanded(
+        geo_query,
         limit=settings.other_max_searxng_urls,
         category=category,
     )

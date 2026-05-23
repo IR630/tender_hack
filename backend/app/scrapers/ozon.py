@@ -21,7 +21,9 @@ class OzonScraper(BaseScraper):
 
     async def _search_browser(self, request: SearchRequest) -> list[Product]:
         self.clear_error()
-        raw, error, status = await ozon_browser.search_products(request.query.strip())
+        raw, error, status = await ozon_browser.search_products(
+            request.query.strip(), region=request.region
+        )
         if status == ozon_browser.OZON_WAF_STATUS:
             self.set_source_status(status)
             self.set_error(error or ozon_browser.OZON_WAF_MESSAGE)
@@ -79,6 +81,7 @@ class OzonScraper(BaseScraper):
 
 
 scraper = OzonScraper()
+
 
 
 
