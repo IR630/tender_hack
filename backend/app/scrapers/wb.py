@@ -12,6 +12,8 @@ import logging
 import random
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 
 from curl_cffi import requests as curl_requests
 
@@ -27,15 +29,15 @@ SEARCH_URL = "https://search.wb.ru/exactmatch/ru/common/v4/search"
 BASKET_HOST_FMT = "https://basket-{host:02d}.wbbasket.ru"
 PRODUCT_URL_FMT = "https://www.wildberries.ru/catalog/{nm}/detail.aspx"
 
+# No User-Agent / sec-ch-ua here on purpose: curl_cffi injects them to match the
+# impersonated browser (settings.wb_impersonate), so the UA string and the JA3/JA4
+# TLS fingerprint stay consistent. A hardcoded UA that disagrees with the TLS
+# profile is itself an anti-bot tell.
 BROWSER_HEADERS = {
     "Accept": "*/*",
     "Accept-Language": "ru-RU,ru;q=0.9",
     "Origin": "https://www.wildberries.ru",
     "Referer": "https://www.wildberries.ru/",
-    "User-Agent": (
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-    ),
     "x-userid": "0",
 }
 
@@ -68,7 +70,7 @@ class _SearchResponse:
 def _get_session() -> curl_requests.Session:
     global _session
     if _session is None:
-        _session = curl_requests.Session(impersonate="chrome120")
+        _session = curl_requests.Session(impersonate=settings.wb_impersonate)
     return _session
 
 
@@ -152,6 +154,37 @@ def _http_error_message(status_code: int, body: str) -> str:
     return f"HTTP {status_code}: {snippet or 'пустой ответ'}"
 
 
+def _retry_after_seconds(headers) -> float | None:
+    """Parse a ``Retry-After`` header (delta-seconds or HTTP-date) into seconds."""
+    raw = headers.get("Retry-After") or headers.get("retry-after")
+    if not raw:
+        return None
+    try:
+        return max(0.0, float(raw))
+    except (TypeError, ValueError):
+        pass
+    try:
+        retry_at = parsedate_to_datetime(raw)
+    except (TypeError, ValueError):
+        return None
+    if retry_at is None:
+        return None
+    if retry_at.tzinfo is None:
+        retry_at = retry_at.replace(tzinfo=timezone.utc)
+    return max(0.0, (retry_at - datetime.now(timezone.utc)).total_seconds())
+
+
+def _backoff_delay(attempt: int, headers) -> float:
+    """Server ``Retry-After`` if present, else exponential backoff; +jitter, capped."""
+    server_hint = _retry_after_seconds(headers)
+    if server_hint is not None:
+        base = server_hint
+    else:
+        base = settings.wb_retry_backoff_base_seconds * (2 ** attempt)
+    jitter = random.uniform(0, base * 0.25) if base > 0 else 0.0
+    return min(base + jitter, settings.wb_retry_max_backoff_seconds)
+
+
 def _log_search_diagnosis(pow_header: str | None, products: list[dict], query: object) -> None:
     pow_header = pow_header or ""
     if products:
@@ -179,8 +212,9 @@ def _fetch_search_sync(params: dict[str, object]) -> _SearchResponse:
         "x-queryid": f"qid{int(time.time() * 1000)}",
     }
 
+    max_attempts = max(1, settings.wb_retry_max_attempts)
     last_block: _SearchResponse | None = None
-    for attempt in range(2):
+    for attempt in range(max_attempts):
         try:
             response = _get_session().get(
                 SEARCH_URL,
@@ -200,17 +234,27 @@ def _fetch_search_sync(params: dict[str, object]) -> _SearchResponse:
                 pow_header=pow_header,
                 error=_http_error_message(response.status_code, response.text),
             )
+            _reset_session()
+            if attempt < max_attempts - 1:
+                delay = _backoff_delay(attempt, response.headers)
+                logger.warning(
+                    "WB search blocked for %r: HTTP %s (attempt %s/%s), retrying in %.1fs",
+                    query,
+                    response.status_code,
+                    attempt + 1,
+                    max_attempts,
+                    delay,
+                )
+                time.sleep(delay)
+                headers["x-queryid"] = f"qid{int(time.time() * 1000)}"
+                continue
             logger.warning(
-                "WB search blocked for %r: HTTP %s (attempt %s/2)",
+                "WB search blocked for %r: HTTP %s (attempt %s/%s), giving up",
                 query,
                 response.status_code,
                 attempt + 1,
+                max_attempts,
             )
-            _reset_session()
-            if attempt == 0:
-                time.sleep(0.5)
-                headers["x-queryid"] = f"qid{int(time.time() * 1000)}"
-                continue
             _trip_circuit()
             return last_block
 

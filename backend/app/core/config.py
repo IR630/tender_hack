@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     wb_min_request_interval_seconds: float = 1.5
     wb_circuit_breaker_seconds: float = 10 * 60
     wb_cache_enabled: bool = True
+    wb_impersonate: str = "chrome131"
+    wb_retry_max_attempts: int = 3
+    wb_retry_backoff_base_seconds: float = 0.5
+    wb_retry_max_backoff_seconds: float = 5.0
     ym_cache_enabled: bool = True
     ym_search_max_pages: int = 3
     ozon_use_browser: bool = True
