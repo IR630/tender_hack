@@ -29,6 +29,7 @@ OZON_HOME_URL = "https://www.ozon.ru/"
 OZON_WAF_STATUS = "blocked_by_waf"
 OZON_WAF_MESSAGE = "Ozon: доступ временно ограничен защитой маркетплейса"
 POLL_INTERVAL_SECONDS = 2.0
+DETAIL_EXTRA_WAIT_SECONDS = 3.0
 
 
 def _is_challenge(html: str) -> bool:
@@ -107,6 +108,18 @@ async def _warmup_browser(browser: uc.Browser, *, label: str) -> str | None:
         settings.ozon_browser_warmup_seconds + settings.ozon_browser_wait_seconds,
         require_products=False,
     )
+    if not home_ok and _is_challenge(home_html):
+        await home_tab.sleep(4.0)
+        try:
+            await home_tab.reload()
+        except Exception:
+            pass
+        await home_tab.sleep(2.0)
+        home_html, home_ok = await _poll_until_ready(
+            home_tab,
+            settings.ozon_browser_warmup_seconds,
+            require_products=False,
+        )
     if home_ok or not _is_challenge(home_html):
         struct_logger.info("ozon_browser_warmup_ok", query=label, html_len=len(home_html))
         return None
@@ -147,7 +160,7 @@ async def navigate_and_get_html(
 ) -> tuple[str, str | None]:
     tab = await browser.get(url)
     if require_product_detail:
-        await tab.sleep(1.0)
+        await tab.sleep(1.5)
     html, ok = await _poll_until_ready(
         tab,
         wait_seconds,
@@ -156,9 +169,17 @@ async def navigate_and_get_html(
     )
     if require_product_detail and ok:
         try:
+            await tab.scroll_down(800)
+            await tab.sleep(1.5)
             await tab.scroll_down(1200)
-            await tab.sleep(2.0)
+            await tab.sleep(DETAIL_EXTRA_WAIT_SECONDS)
             html = await tab.get_content()
+            if not _is_product_detail_ready(html or ""):
+                html, ok = await _poll_until_ready(
+                    tab,
+                    DETAIL_EXTRA_WAIT_SECONDS + 4.0,
+                    require_product_detail=True,
+                )
         except Exception:
             pass
     if ok:

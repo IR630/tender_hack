@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 import { ProductCard } from "./ProductCard";
 import type { SearchGroup } from "../types/search";
 
@@ -12,7 +14,33 @@ function formatPrice(price: number | null): string {
   return `${Math.round(price / 100).toLocaleString("ru-RU")} ₽`;
 }
 
+const PAGE_SIZE = 10;
+
+function productLabel(count: number): string {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) {
+    return "товар";
+  }
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+    return "товара";
+  }
+  return "товаров";
+}
+
 export function SourceGroup({ group }: SourceGroupProps) {
+  const totalCount = Math.max(group.count, group.products.length);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const shownCount = Math.min(visibleCount, group.products.length);
+  const remainingCount = Math.max(0, totalCount - shownCount);
+  const nextBatchSize = Math.min(PAGE_SIZE, remainingCount);
+  const nextVisibleCount = Math.min(shownCount + nextBatchSize, totalCount);
+
+  const firstProductUrl = group.products[0]?.product_url;
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [group.source, totalCount, firstProductUrl]);
+
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
       <header className="mb-3 flex items-center justify-between gap-3">
@@ -29,22 +57,37 @@ export function SourceGroup({ group }: SourceGroupProps) {
               {group.error ?? "Ozon: доступ временно ограничен защитой маркетплейса"}
             </p>
           ) : group.error ? (
-            <p className="rounded-md border border-amber-900/60 bg-amber-950/30 px-3 py-2 text-amber-200">
+            <p className="whitespace-pre-wrap rounded-md border border-amber-900/60 bg-amber-950/30 px-3 py-2 text-sm text-amber-100">
               {group.error}
             </p>
+          ) : group.source === "other" ? (
+            <p className="text-slate-400">
+              Нет результатов из сети. Повторите поиск — диагностика появится автоматически.
+            </p>
           ) : (
-            <p className="text-slate-400">Пока нет данных — модуль источника в разработке.</p>
+            <p className="text-slate-400">Пока нет данных по этому источнику.</p>
           )}
         </div>
       ) : (
         <ul className="space-y-3">
-          {group.products.slice(0, 10).map((product) => (
+          {group.products.slice(0, shownCount).map((product) => (
             <ProductCard key={`${product.source}-${product.product_url}`} product={product} />
           ))}
-          {group.products.length > 10 && (
-            <p className="text-sm text-slate-400">
-              и ещё {group.products.length - 10} предложений
-            </p>
+          {remainingCount > 0 && (
+            <li>
+              <button
+                type="button"
+                onClick={() =>
+                  setVisibleCount((count) =>
+                    Math.min(count + PAGE_SIZE, group.products.length, totalCount),
+                  )
+                }
+                className="w-full rounded-lg border border-slate-700 bg-slate-900/80 px-4 py-2 text-sm text-slate-200 transition hover:border-slate-500 hover:bg-slate-800"
+              >
+                Показать ещё {nextBatchSize} {productLabel(nextBatchSize)} · {nextVisibleCount}{" "}
+                из {totalCount}
+              </button>
+            </li>
           )}
         </ul>
       )}

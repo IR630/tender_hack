@@ -60,4 +60,4 @@ export interface SearchTaskStatusResponse {
   groups: SearchGroup[];
 }
 
-export const SEARCH_POLL_INTERVAL_MS = 3000;
+export const SEARCH_POLL_INTERVAL_MS = 1500;
