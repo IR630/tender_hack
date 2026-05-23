@@ -32,13 +32,14 @@ export function ProductCard({ product }: ProductCardProps) {
   }, [product.image_url]);
 
   return (
-    <li className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+    <li className="rounded-input border border-rule bg-paper p-3 transition-colors hover:border-rule-2">
       <div className="flex gap-3">
         {imageSrc ? (
           <img
             src={imageSrc}
             alt=""
-            className="h-16 w-16 shrink-0 rounded-md bg-slate-800 object-cover"
+            loading="lazy"
+            className="h-16 w-16 shrink-0 rounded-input border border-rule bg-paper-3 object-cover"
             onError={() => {
               const fallback = nextBasketUrl(imageSrc);
               if (fallback) {
@@ -47,28 +48,28 @@ export function ProductCard({ product }: ProductCardProps) {
             }}
           />
         ) : (
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-slate-800 text-xs text-slate-500">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-input border border-rule bg-paper-3 text-xs text-muted">
             нет фото
           </div>
         )}
 
         <div className="min-w-0 flex-1">
-          <p className="font-medium leading-snug">{product.title}</p>
-          <p className="mt-1 text-sm text-emerald-400">{formatPrice(product.price)}</p>
+          <p className="text-sm font-medium leading-snug text-ink">{product.title}</p>
+          <p className="tnum mt-1 text-base font-semibold text-ink">{formatPrice(product.price)}</p>
 
           {(product.rating !== null || product.reviews_count !== null) && (
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="tnum mt-1 text-xs text-muted">
               {product.rating !== null && `★ ${product.rating}`}
               {product.reviews_count !== null && ` · ${product.reviews_count} отзывов`}
             </p>
           )}
 
-          <div className="mt-2 flex flex-wrap items-center gap-3">
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
             {hasDescription && (
               <button
                 type="button"
                 onClick={() => setExpanded((value) => !value)}
-                className="text-xs text-violet-400 hover:text-violet-300"
+                className="rounded-sm text-xs text-muted underline-offset-2 outline-none transition-colors hover:text-ink hover:underline focus-visible:ring-2 focus-visible:ring-focus/60"
               >
                 {expanded ? "Скрыть описание" : "Показать описание"}
               </button>
@@ -77,7 +78,7 @@ export function ProductCard({ product }: ProductCardProps) {
               href={product.product_url}
               target="_blank"
               rel="noreferrer"
-              className="text-xs text-sky-400 hover:text-sky-300"
+              className="rounded-sm text-xs font-medium text-ink underline-offset-2 outline-none transition-colors hover:underline focus-visible:ring-2 focus-visible:ring-focus/60"
             >
               Открыть на маркетплейсе →
             </a>
@@ -86,7 +87,7 @@ export function ProductCard({ product }: ProductCardProps) {
       </div>
 
       {expanded && hasDescription && (
-        <div className="mt-3 max-h-80 overflow-y-auto rounded-md border border-slate-800 bg-slate-900/80 p-3 text-sm leading-relaxed text-slate-300 whitespace-pre-line">
+        <div className="mt-3 max-h-80 overflow-y-auto rounded-input border border-rule bg-paper-2 p-3 text-sm leading-relaxed text-ink-2 whitespace-pre-line">
           {product.description}
         </div>
       )}

@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { DEFAULT_REGION_ID, loadStoredRegion, RegionSelector } from "./components/RegionSelector";
-import { SearchLoader } from "./components/SearchLoader";
+import { SearchProgress } from "./components/SearchProgress";
 import { SourceGroup } from "./components/SourceGroup";
 import type {
   SearchResponse,
@@ -18,6 +18,13 @@ function orderGroups(groups: SearchResponse["groups"]) {
   );
 }
 
+function formatRub(price: number | null): string {
+  if (price === null) {
+    return "—";
+  }
+  return `${Math.round(price / 100).toLocaleString("ru-RU")} ₽`;
+}
+
 export default function App() {
   const [query, setQuery] = useState("");
   const [region, setRegion] = useState(loadStoredRegion);
@@ -26,6 +33,8 @@ export default function App() {
   const [result, setResult] = useState<SearchResponse | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const pollRef = useRef<number | null>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     return () => {
@@ -127,77 +136,141 @@ export default function App() {
   }
 
   const orderedGroups = result ? orderGroups(result.groups) : [];
+  const summary = result?.summary;
+  const hasSummary = Boolean(!loading && result && summary && summary.total_found > 0);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 px-4 py-10">
-      <header className="space-y-2">
-        <p className="text-sm uppercase tracking-[0.2em] text-slate-400">Tender Hack</p>
-        <h1 className="text-3xl font-bold">Поиск цен по маркетплейсам и Рунету</h1>
-        <p className="text-slate-400">
-          Агрегатор цен с группировкой по источникам, исправлением опечаток и синонимами.
-        </p>
+    <div className="flex min-h-screen flex-col">
+      <header className="sticky top-0 z-30 border-b border-rule bg-paper backdrop-blur">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-5 py-4">
+          <div className="flex items-baseline gap-2.5">
+            <span className="text-base font-semibold tracking-display text-ink">Тендер-Поиск</span>
+            <span className="hidden text-xs text-muted sm:inline">цены по Рунету</span>
+          </div>
+          <RegionSelector value={region} onChange={setRegion} />
+        </div>
       </header>
 
-      <form onSubmit={handleSearch} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <RegionSelector value={region} onChange={setRegion} />
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Например: айфон 15 про 256"
-          className="flex-1 rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 outline-none ring-emerald-500 focus:ring-2"
+      <main ref={mainRef} className="relative mx-auto w-full max-w-5xl flex-1 px-5 pb-20 pt-10 sm:pt-14">
+        <section className="max-w-2xl">
+          <h1 className="text-balance break-words font-display text-4xl font-medium leading-[1.08] tracking-display text-ink [overflow-wrap:anywhere] sm:text-5xl">
+            Сравните цены на одной странице
+          </h1>
+          <p className="mt-4 max-w-xl text-base leading-relaxed text-neutral">
+            Один запрос — предложения с маркетплейсов и из Рунета, сгруппированные по источникам.
+            С исправлением опечаток, синонимами и учётом региона доставки.
+          </p>
+
+          <form ref={formRef} onSubmit={handleSearch} className="mt-7 flex flex-col gap-2.5 sm:flex-row">
+            <div className="relative flex-1">
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Например: айфон 15 про 256"
+                aria-label="Поисковый запрос"
+                className="w-full rounded-input border border-rule-2 bg-paper px-4 py-3 text-ink outline-none transition-colors placeholder:text-muted hover:border-ink-2 focus-visible:border-ink focus-visible:ring-2 focus-visible:ring-focus/60"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="rounded-pill bg-accent px-7 py-3 font-medium text-accent-ink outline-none transition-transform duration-[120ms] ease-out hover:-translate-y-px active:translate-y-0 active:bg-ink-2 focus-visible:ring-2 focus-visible:ring-focus/60 focus-visible:ring-offset-2 focus-visible:ring-offset-paper disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
+            >
+              {loading ? "Ищем…" : "Найти"}
+            </button>
+          </form>
+        </section>
+
+        {error && (
+          <p
+            role="alert"
+            className="mt-8 rounded-card border border-rule-2 bg-paper-2 px-4 py-3 text-sm text-ink-2"
+          >
+            Не удалось выполнить поиск: {error}
+          </p>
+        )}
+
+        <SearchProgress
+          mainRef={mainRef}
+          formRef={formRef}
+          loading={loading}
+          hasPartial={orderedGroups.length > 0}
+          query={query}
+          statusMessage={statusMessage}
         />
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded-lg bg-emerald-500 px-6 py-3 font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {loading ? "Ищем..." : "Найти"}
-        </button>
-      </form>
 
-      {error && (
-        <p className="rounded-lg border border-red-900 bg-red-950/40 px-4 py-3 text-red-300">
-          {error}
-        </p>
-      )}
+        {(loading || result) && orderedGroups.length > 0 && (
+          <div className="mt-12 space-y-8">
+            {hasSummary && summary && (
+              <section className="border-y border-rule py-5">
+                <dl className="flex flex-wrap items-end gap-x-10 gap-y-4">
+                  <div>
+                    <dt className="text-xs uppercase tracking-label text-muted">Найдено</dt>
+                    <dd className="tnum mt-1 text-2xl font-medium text-ink">
+                      {summary.total_found.toLocaleString("ru-RU")}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs uppercase tracking-label text-muted">Минимум</dt>
+                    <dd className="tnum mt-1 text-2xl font-medium text-ink">
+                      {formatRub(summary.min_price)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs uppercase tracking-label text-muted">Медиана</dt>
+                    <dd className="tnum mt-1 text-2xl font-medium text-ink">
+                      {formatRub(summary.median_price)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs uppercase tracking-label text-muted">Максимум</dt>
+                    <dd className="tnum mt-1 text-2xl font-medium text-ink">
+                      {formatRub(summary.max_price)}
+                    </dd>
+                  </div>
+                </dl>
+              </section>
+            )}
 
-      {loading && orderedGroups.length === 0 && <SearchLoader query={query} statusMessage={statusMessage} />}
-
-      {(loading || result) && orderedGroups.length > 0 && (
-        <div className="space-y-4">
-          {loading && (
-            <p className="text-sm text-slate-400">Частичные результаты (Ozon — до 35 с)…</p>
-          )}
-          {!loading && result && (
-            <div className="flex flex-wrap gap-2 text-sm">
-              {result.query.corrected !== result.query.original && (
-                <span className="rounded-full bg-slate-800 px-3 py-1">
-                  исправлено: {result.query.original} → {result.query.corrected}
+            {!loading && result && (
+              <div className="flex flex-wrap gap-2 text-xs">
+                {result.query.corrected !== result.query.original && (
+                  <span className="rounded-pill border border-rule bg-paper-2 px-3 py-1 text-ink-2">
+                    исправлено: {result.query.original} → {result.query.corrected}
+                  </span>
+                )}
+                {result.query.synonyms_used.length > 0 && (
+                  <span className="rounded-pill border border-rule bg-paper-2 px-3 py-1 text-ink-2">
+                    синонимы: {result.query.synonyms_used.join(", ")}
+                  </span>
+                )}
+                <span className="rounded-pill border border-rule bg-paper-2 px-3 py-1 text-ink-2">
+                  регион: {result.query.region_name}
                 </span>
-              )}
-              {result.query.synonyms_used.length > 0 && (
-                <span className="rounded-full bg-slate-800 px-3 py-1">
-                  синонимы: {result.query.synonyms_used.join(", ")}
-                </span>
-              )}
-              <span className="rounded-full bg-slate-800 px-3 py-1">
-                регион: {result.query.region_name}
-              </span>
-              {!loading && (
-                <span className="rounded-full bg-slate-800 px-3 py-1">
+                <span className="tnum rounded-pill border border-rule bg-paper-2 px-3 py-1 text-ink-2">
                   {result.query.took_ms} ms
                 </span>
-              )}
-            </div>
-          )}
+              </div>
+            )}
 
-          <div className="grid gap-4 md:grid-cols-2">
-            {orderedGroups.map((group) => (
-              <SourceGroup key={group.source} group={group} />
-            ))}
+            <div className="grid gap-5 md:grid-cols-2">
+              {orderedGroups.map((group) => (
+                <SourceGroup key={group.source} group={group} />
+              ))}
+            </div>
           </div>
+        )}
+      </main>
+
+      <footer className="border-t border-rule">
+        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-2 gap-y-1 px-5 py-5 text-xs text-muted">
+          <span className="font-medium text-ink-2">Тендер-Поиск</span>
+          <span aria-hidden="true">·</span>
+          <span>агрегатор цен по маркетплейсам и Рунету</span>
+          <span aria-hidden="true">·</span>
+          <span className="tnum">2026</span>
         </div>
-      )}
-    </main>
+      </footer>
+    </div>
   );
 }

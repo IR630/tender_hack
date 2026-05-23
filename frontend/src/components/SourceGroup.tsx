@@ -42,30 +42,30 @@ export function SourceGroup({ group }: SourceGroupProps) {
   }, [group.source, totalCount, firstProductUrl]);
 
   return (
-    <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-      <header className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">{group.display_name}</h2>
-        <span className="rounded-full bg-slate-800 px-3 py-1 text-sm text-slate-300">
-          {group.count} предложений · от {formatPrice(group.min_price)}
+    <section className="rounded-card border border-rule bg-paper-2 p-5">
+      <header className="mb-4 flex items-baseline justify-between gap-3 border-b border-rule pb-3">
+        <h2 className="text-base font-semibold tracking-display text-ink">{group.display_name}</h2>
+        <span className="tnum shrink-0 text-sm text-muted">
+          {group.count} · от <span className="text-ink-2">{formatPrice(group.min_price)}</span>
         </span>
       </header>
 
       {group.products.length === 0 ? (
-        <div className="space-y-1 text-sm">
+        <div className="text-sm">
           {group.status === "blocked_by_waf" ? (
-            <p className="rounded-md border border-orange-900/60 bg-orange-950/40 px-3 py-2 text-orange-200">
+            <p className="rounded-input border border-rule-2 bg-paper px-3 py-2 text-ink-2">
               {group.error ?? "Ozon: доступ временно ограничен защитой маркетплейса"}
             </p>
           ) : group.error ? (
-            <p className="whitespace-pre-wrap rounded-md border border-amber-900/60 bg-amber-950/30 px-3 py-2 text-sm text-amber-100">
+            <p className="whitespace-pre-wrap rounded-input border border-rule-2 bg-paper px-3 py-2 text-ink-2">
               {group.error}
             </p>
           ) : group.source === "other" ? (
-            <p className="text-slate-400">
+            <p className="text-muted">
               Нет результатов из сети. Повторите поиск — диагностика появится автоматически.
             </p>
           ) : (
-            <p className="text-slate-400">Пока нет данных по этому источнику.</p>
+            <p className="text-muted">Пока нет данных по этому источнику.</p>
           )}
         </div>
       ) : (
@@ -82,10 +82,12 @@ export function SourceGroup({ group }: SourceGroupProps) {
                     Math.min(count + PAGE_SIZE, group.products.length, totalCount),
                   )
                 }
-                className="w-full rounded-lg border border-slate-700 bg-slate-900/80 px-4 py-2 text-sm text-slate-200 transition hover:border-slate-500 hover:bg-slate-800"
+                className="w-full rounded-input border border-rule bg-paper px-4 py-2 text-sm text-ink-2 outline-none transition-colors hover:border-ink-2 hover:bg-paper-3 active:bg-rule focus-visible:ring-2 focus-visible:ring-focus/60"
               >
-                Показать ещё {nextBatchSize} {productLabel(nextBatchSize)} · {nextVisibleCount}{" "}
-                из {totalCount}
+                Показать ещё {nextBatchSize} {productLabel(nextBatchSize)} ·{" "}
+                <span className="tnum">
+                  {nextVisibleCount} из {totalCount}
+                </span>
               </button>
             </li>
           )}
