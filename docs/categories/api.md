@@ -8,7 +8,6 @@
 app = FastAPI(title=settings.app_name)
 app.include_router(search.router)    # /search
 app.include_router(regions.router)   # /regions
-app.state.ozon_browser_semaphore = ozon_browser_semaphore
 ```
 
 Logging: structlog JSON + stdlib.

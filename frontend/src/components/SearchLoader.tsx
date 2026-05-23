@@ -18,9 +18,10 @@ const STATUS_MESSAGES = [
 
 interface SearchLoaderProps {
   query: string;
+  statusMessage?: string | null;
 }
 
-export function SearchLoader({ query }: SearchLoaderProps) {
+export function SearchLoader({ query, statusMessage }: SearchLoaderProps) {
   const [activeSource, setActiveSource] = useState(0);
   const [statusIndex, setStatusIndex] = useState(0);
 
@@ -112,10 +113,10 @@ export function SearchLoader({ query }: SearchLoaderProps) {
           )}
 
           <p
-            key={statusIndex}
+            key={statusMessage ?? statusIndex}
             className="search-loader__status min-h-[1.5rem] text-sm text-slate-400"
           >
-            {STATUS_MESSAGES[statusIndex]}
+            {statusMessage ?? STATUS_MESSAGES[statusIndex]}
           </p>
         </div>
 

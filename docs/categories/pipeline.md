@@ -126,7 +126,7 @@ def rank_products(query, products):
     return sorted(products, key=lambda p: p.relevance_score, reverse=True)
 ```
 
-**Не подключён** к оркестратору. Отличие от Ozon ML filter — см. [../marketplaces/ozon.md](../marketplaces/ozon.md).
+**Не подключён** к оркестратору — будет использоваться для post-ranking результатов. Отличие от Ozon ML filter — см. [../marketplaces/ozon.md](../marketplaces/ozon.md).
 
 ---
 

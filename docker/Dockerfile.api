@@ -6,17 +6,38 @@ COPY backend/pyproject.toml backend/uv.lock backend/README.md ./
 RUN uv sync --no-dev --no-install-project
 
 COPY backend/app ./app
+COPY backend/ozon_public_scraper ./ozon_public_scraper
+COPY backend/cache_manager.py ./cache_manager.py
 RUN uv sync --no-dev
 
-FROM python:3.12-slim-bookworm
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        chromium \
+        xvfb \
+        procps \
+        dbus-x11 \
+        fonts-liberation \
+        fonts-noto-color-emoji \
+    && rm -rf /var/lib/apt/lists/*
+
+# System chromium is installed for optional manual debugging; nodriver uses its bundled browser.
+
 COPY --from=builder /app/.venv /app/.venv
 COPY backend/app ./app
+COPY backend/ozon_public_scraper ./ozon_public_scraper
+COPY backend/cache_manager.py ./cache_manager.py
+COPY docker/entrypoint-api.sh /entrypoint-api.sh
+
+RUN chmod +x /entrypoint-api.sh \
+    && mkdir -p /app/data/ozon_disk_cache
 
 ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH="/app"
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["/entrypoint-api.sh"]

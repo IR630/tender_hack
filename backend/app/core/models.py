@@ -44,6 +44,8 @@ class SearchGroup(BaseModel):
     min_price: int | None = None
     domains: list[str] = Field(default_factory=list)
     products: list[Product] = Field(default_factory=list)
+    error: str | None = None
+    status: str | None = None
 
 
 class SearchRequest(BaseModel):
@@ -55,3 +57,16 @@ class SearchResponse(BaseModel):
     query: SearchQuery
     summary: SearchSummary
     groups: list[SearchGroup]
+
+
+class SearchTaskCreateResponse(BaseModel):
+    task_id: str
+
+
+class SearchTaskStatusResponse(BaseModel):
+    task_id: str
+    status: Literal["pending", "running", "completed", "failed"]
+    message: str | None = None
+    error: str | None = None
+    result: SearchResponse | None = None
+    groups: list[SearchGroup] = Field(default_factory=list)

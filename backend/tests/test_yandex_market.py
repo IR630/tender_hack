@@ -1,9 +1,9 @@
 import pytest
 
-from app.core.models import SearchRequest
+from app.core.models import Product, SearchRequest
 from app.scrapers.yandex_market import (
-    STOP_SIGNAL_COUNT,
     _build_description,
+    _clean_title_text,
     _collect_paginated_products,
     _extract_characteristics,
     _is_garbage_listing,
@@ -11,7 +11,9 @@ from app.scrapers.yandex_market import (
     _parse_card_prose,
     _parse_card_specs,
     _parse_search_html,
+    _parse_snippet_title,
 )
+from selectolax.parser import HTMLParser
 
 SAMPLE_HTML = """
 <html><body>
@@ -46,6 +48,21 @@ GARBAGE_HTML = """
     <img src="https://avatars.mds.yandex.net/get-mpic/3.jpeg/orig" />
     <span data-auto="snippet-title">Чехол для iPhone 15 прозрачный силиконовый</span>
     <span data-auto="snippet-price-current">590 ₽</span>
+  </a>
+</article>
+</body></html>
+"""
+
+
+BRAND_TITLE_HTML = """
+<html><body>
+<article>
+  <a href="/card/trusy-fuka/1">
+    <img src="https://avatars.mds.yandex.net/get-mpic/4.jpeg/orig" />
+    <p data-auto="snippet-title" title="FUKA&amp;nbsp;Трусы, комплект">
+      <span data-auto="snippet-brand-title">FUKA</span>Трусы, комплект
+    </p>
+    <span data-auto="snippet-price-current">593 ₽</span>
   </a>
 </article>
 </body></html>
@@ -122,6 +139,22 @@ def test_parse_search_html_extracts_product() -> None:
     assert "29 мая" in product.description
 
 
+def test_parse_snippet_title_uses_title_attribute() -> None:
+    tree = HTMLParser(BRAND_TITLE_HTML)
+    title_el = tree.css_first('[data-auto="snippet-title"]')
+    assert title_el is not None
+    assert _parse_snippet_title(title_el) == "FUKA Трусы, комплект"
+
+    products = _parse_search_html(BRAND_TITLE_HTML)
+    assert len(products) == 1
+    assert products[0].title == "FUKA Трусы, комплект"
+
+
+def test_clean_title_text_fixes_glued_brand_fallback() -> None:
+    assert _clean_title_text("BORNERSТрусы боксеры") == "BORNERS Трусы боксеры"
+    assert _clean_title_text("Трусы  , комплект") == "Трусы , комплект"
+
+
 def test_extract_characteristics_from_title() -> None:
     chars = _extract_characteristics("Смартфон Apple iPhone 15 128 ГБ, Dual: nano SIM, черный")
     assert chars["memory"] == "128 ГБ"
@@ -156,7 +189,7 @@ def test_collect_paginated_products_stops_on_duplicates() -> None:
     def fetch(page: int) -> str:
         return pages.get(page, "")
 
-    products = _collect_paginated_products(fetch, "iphone 15", stop_signal_count=3, max_pages=10)
+    products = _collect_paginated_products(fetch, "iphone 15", max_pages=10)
     assert len(products) == 1
     assert products[0].title.startswith("Смартфон Apple iPhone 15")
 
@@ -172,7 +205,7 @@ def test_collect_paginated_products_stops_on_garbage() -> None:
     def fetch(page: int) -> str:
         return pages.get(page, "")
 
-    products = _collect_paginated_products(fetch, "iphone 15", stop_signal_count=3, max_pages=10)
+    products = _collect_paginated_products(fetch, "iphone 15", max_pages=10)
     assert len(products) == 1
 
 
@@ -186,8 +219,37 @@ def test_collect_paginated_products_keeps_going_while_relevant() -> None:
     def fetch(page: int) -> str:
         return pages.get(page, "")
 
-    products = _collect_paginated_products(fetch, "iphone 15", stop_signal_count=STOP_SIGNAL_COUNT)
+    products = _collect_paginated_products(fetch, "iphone 15", max_pages=10)
     assert len(products) == 3
+
+
+@pytest.mark.asyncio
+async def test_yandex_market_search_uses_cache(monkeypatch) -> None:
+    from app.scrapers import yandex_market as ym
+
+    cached = [
+        Product(
+            source="yandex_market",
+            source_domain="market.yandex.ru",
+            title="Трусы FUKA, комплект",
+            description="cached",
+            price=59_300,
+            image_url="https://example.com/1.jpg",
+            product_url="https://market.yandex.ru/card/1",
+        )
+    ]
+
+    async def fake_load(region, query):
+        return cached
+
+    async def fail_fetch(*args, **kwargs):
+        raise AssertionError("fetch should not run on cache hit")
+
+    monkeypatch.setattr(ym, "_load_cached_products", fake_load)
+    monkeypatch.setattr(ym, "_fetch_products_sync", fail_fetch)
+
+    products = await ym.scraper.search(SearchRequest(query="трусы", region="moscow"))
+    assert products == cached
 
 
 @pytest.mark.integration

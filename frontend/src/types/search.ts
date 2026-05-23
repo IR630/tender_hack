@@ -23,6 +23,8 @@ export interface SearchGroup {
   min_price: number | null;
   domains: string[];
   products: Product[];
+  error?: string | null;
+  status?: string | null;
 }
 
 export interface SearchResponse {
@@ -42,3 +44,20 @@ export interface SearchResponse {
   };
   groups: SearchGroup[];
 }
+
+export interface SearchTaskCreateResponse {
+  task_id: string;
+}
+
+export type SearchTaskStatus = "pending" | "running" | "completed" | "failed";
+
+export interface SearchTaskStatusResponse {
+  task_id: string;
+  status: SearchTaskStatus;
+  message?: string | null;
+  error?: string | null;
+  result?: SearchResponse | null;
+  groups: SearchGroup[];
+}
+
+export const SEARCH_POLL_INTERVAL_MS = 3000;

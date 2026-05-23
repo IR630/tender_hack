@@ -1,11 +1,22 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { DEFAULT_REGION_ID, loadStoredRegion, RegionSelector } from "./components/RegionSelector";
 import { SearchLoader } from "./components/SearchLoader";
 import { SourceGroup } from "./components/SourceGroup";
-import type { SearchResponse } from "./types/search";
+import type {
+  SearchResponse,
+  SearchTaskCreateResponse,
+  SearchTaskStatusResponse,
+} from "./types/search";
+import { SEARCH_POLL_INTERVAL_MS } from "./types/search";
 
 const SOURCE_ORDER = ["wildberries", "yandex_market", "ozon", "other"] as const;
+
+function orderGroups(groups: SearchResponse["groups"]) {
+  return SOURCE_ORDER.map((source) => groups.find((group) => group.source === source)).filter(
+    (group): group is NonNullable<typeof group> => Boolean(group),
+  );
+}
 
 export default function App() {
   const [query, setQuery] = useState("");
@@ -13,6 +24,64 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SearchResponse | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const pollRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pollRef.current !== null) {
+        window.clearInterval(pollRef.current);
+      }
+    };
+  }, []);
+
+  function stopPolling() {
+    if (pollRef.current !== null) {
+      window.clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }
+
+  async function pollTask(taskId: string) {
+    const response = await fetch(`/api/search/${taskId}`);
+    if (!response.ok) {
+      throw new Error(`Poll error: ${response.status}`);
+    }
+    const payload = (await response.json()) as SearchTaskStatusResponse;
+    setStatusMessage(payload.message ?? null);
+
+    if (payload.groups.length > 0) {
+      setResult((prev) =>
+        prev
+          ? { ...prev, groups: orderGroups(payload.groups) }
+          : {
+              query: {
+                original: query.trim(),
+                corrected: query.trim(),
+                region,
+                region_name: region,
+                synonyms_used: [],
+                took_ms: 0,
+              },
+              summary: { total_found: 0, min_price: null, median_price: null, max_price: null },
+              groups: orderGroups(payload.groups),
+            },
+      );
+    }
+
+    if (payload.status === "completed" && payload.result) {
+      stopPolling();
+      setResult(payload.result);
+      setLoading(false);
+      setStatusMessage(null);
+    }
+
+    if (payload.status === "failed") {
+      stopPolling();
+      setLoading(false);
+      throw new Error(payload.error ?? "Search failed");
+    }
+  }
 
   async function handleSearch(event: FormEvent) {
     event.preventDefault();
@@ -21,8 +90,11 @@ export default function App() {
       return;
     }
 
+    stopPolling();
     setLoading(true);
     setError(null);
+    setResult(null);
+    setStatusMessage("Запуск поиска…");
 
     try {
       const response = await fetch("/api/search", {
@@ -35,21 +107,26 @@ export default function App() {
         throw new Error(`API error: ${response.status}`);
       }
 
-      const payload = (await response.json()) as SearchResponse;
-      setResult(payload);
+      const { task_id } = (await response.json()) as SearchTaskCreateResponse;
+      await pollTask(task_id);
+
+      pollRef.current = window.setInterval(() => {
+        pollTask(task_id).catch((pollError) => {
+          stopPolling();
+          setLoading(false);
+          setError(pollError instanceof Error ? pollError.message : "Unknown error");
+        });
+      }, SEARCH_POLL_INTERVAL_MS);
     } catch (searchError) {
+      stopPolling();
       setError(searchError instanceof Error ? searchError.message : "Unknown error");
       setResult(null);
-    } finally {
       setLoading(false);
+      setStatusMessage(null);
     }
   }
 
-  const orderedGroups = result
-    ? SOURCE_ORDER.map((source) => result.groups.find((group) => group.source === source)).filter(
-        (group): group is NonNullable<typeof group> => Boolean(group),
-      )
-    : [];
+  const orderedGroups = result ? orderGroups(result.groups) : [];
 
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 px-4 py-10">
@@ -84,28 +161,35 @@ export default function App() {
         </p>
       )}
 
-      {loading && <SearchLoader query={query} />}
+      {loading && <SearchLoader query={query} statusMessage={statusMessage} />}
 
-      {!loading && result && (
+      {(loading || result) && orderedGroups.length > 0 && (
         <div className="space-y-4">
-          <div className="flex flex-wrap gap-2 text-sm">
-            {result.query.corrected !== result.query.original && (
+          {loading && (
+            <p className="text-sm text-slate-400">Частичные результаты (Ozon — до 35 с)…</p>
+          )}
+          {!loading && result && (
+            <div className="flex flex-wrap gap-2 text-sm">
+              {result.query.corrected !== result.query.original && (
+                <span className="rounded-full bg-slate-800 px-3 py-1">
+                  исправлено: {result.query.original} → {result.query.corrected}
+                </span>
+              )}
+              {result.query.synonyms_used.length > 0 && (
+                <span className="rounded-full bg-slate-800 px-3 py-1">
+                  синонимы: {result.query.synonyms_used.join(", ")}
+                </span>
+              )}
               <span className="rounded-full bg-slate-800 px-3 py-1">
-                исправлено: {result.query.original} → {result.query.corrected}
+                регион: {result.query.region_name}
               </span>
-            )}
-            {result.query.synonyms_used.length > 0 && (
-              <span className="rounded-full bg-slate-800 px-3 py-1">
-                синонимы: {result.query.synonyms_used.join(", ")}
-              </span>
-            )}
-            <span className="rounded-full bg-slate-800 px-3 py-1">
-              регион: {result.query.region_name}
-            </span>
-            <span className="rounded-full bg-slate-800 px-3 py-1">
-              {result.query.took_ms} ms
-            </span>
-          </div>
+              {!loading && (
+                <span className="rounded-full bg-slate-800 px-3 py-1">
+                  {result.query.took_ms} ms
+                </span>
+              )}
+            </div>
+          )}
 
           <div className="grid gap-4 md:grid-cols-2">
             {orderedGroups.map((group) => (

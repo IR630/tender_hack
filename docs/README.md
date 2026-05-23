@@ -1,33 +1,44 @@
 # Документация Tender Hack
 
-## Маркетплейсы (1 файл = 1 источник)
+## Обзоры для новичков (простым языком)
 
-| Источник | Документ |
-|----------|----------|
-| Wildberries | [marketplaces/wildberries.md](marketplaces/wildberries.md) |
-| Ozon | [marketplaces/ozon.md](marketplaces/ozon.md) |
-| Яндекс Маркет | [marketplaces/yandex-market.md](marketplaces/yandex-market.md) |
-| Другие источники | [marketplaces/other.md](marketplaces/other.md) |
+**[→ Все обзоры в одном месте](obzor/README.md)**
+
+| | Обзор | Технически |
+|--|-------|------------|
+| Общая картина | [pipeline-obzor](categories/pipeline-obzor.md) | [pipeline](categories/pipeline.md) |
+
+---
+
+## Маркетплейсы
+
+| Источник | Обзор | Технически |
+|----------|-------|------------|
+| Wildberries | [wildberries-obzor](marketplaces/wildberries-obzor.md) | [wildberries](marketplaces/wildberries.md) |
+| Ozon | [ozon-obzor](marketplaces/ozon-obzor.md) | [ozon](marketplaces/ozon.md) |
+| Яндекс Маркет | [yandex-market-obzor](marketplaces/yandex-market-obzor.md) | [yandex-market](marketplaces/yandex-market.md) |
+| Другие источники | [other-obzor](marketplaces/other-obzor.md) | [other](marketplaces/other.md) |
 
 [Оглавление маркетплейсов →](marketplaces/README.md)
 
-## Категории системы (1 файл = 1 область)
+## Категории системы
 
-| Категория | Документ |
-|-----------|----------|
-| Пайплайн и оркестрация | [categories/pipeline.md](categories/pipeline.md) |
-| HTTP API | [categories/api.md](categories/api.md) |
-| Доменные модели | [categories/models.md](categories/models.md) |
-| Кэширование | [categories/cache.md](categories/cache.md) |
-| Frontend | [categories/frontend.md](categories/frontend.md) |
-| Инфраструктура | [categories/infrastructure.md](categories/infrastructure.md) |
-| Библиотеки | [categories/libraries.md](categories/libraries.md) |
+| Категория | Обзор | Технически |
+|-----------|-------|------------|
+| Пайплайн | [pipeline-obzor](categories/pipeline-obzor.md) | [pipeline](categories/pipeline.md) |
+| API | [api-obzor](categories/api-obzor.md) | [api](categories/api.md) |
+| Модели | [models-obzor](categories/models-obzor.md) | [models](categories/models.md) |
+| Кэш | [cache-obzor](categories/cache-obzor.md) | [cache](categories/cache.md) |
+| Frontend | [frontend-obzor](categories/frontend-obzor.md) | [frontend](categories/frontend.md) |
+| Инфраструктура | [infrastructure-obzor](categories/infrastructure-obzor.md) | [infrastructure](categories/infrastructure.md) |
+| Библиотеки | [libraries-obzor](categories/libraries-obzor.md) | [libraries](categories/libraries.md) |
 
 [Оглавление категорий →](categories/README.md)
 
 ## Прочее
 
-- [Docker](docker-run.md)
+- [**Запуск проекта**](run.md) — единая команда `./start_demo.sh`
+- [Docker-only](docker-run.md)
 - [Git Flow](GITFLOW.md)
 - [Contributing](CONTRIBUTING.md)
 - [Ограничения хакатона](ARCHITECTURE_CONSTRAINTS.md)

@@ -1,15 +1,23 @@
 import logging
 
+import structlog
 from fastapi import FastAPI
 
 from app.api.routes import regions, search
 from app.core.config import settings
 
-# Without this, app.* loggers (e.g. the scrapers) propagate to a root logger
-# that defaults to WARNING with no handler, so their diagnostics never show.
+structlog.configure(
+    processors=[
+        structlog.processors.add_log_level,
+        structlog.processors.JSONRenderer(),
+    ],
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
+)
+
 logging.basicConfig(
     level=logging.DEBUG if settings.debug else logging.INFO,
-    format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
+    format="%(message)s" if settings.debug else "%(asctime)s %(levelname)-7s %(name)s: %(message)s",
 )
 
 app = FastAPI(title=settings.app_name, version="0.1.0")
