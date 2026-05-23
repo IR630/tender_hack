@@ -57,6 +57,25 @@ _session: curl_requests.Session | None = None
 _rate_lock = asyncio.Lock()
 _last_wb_request_at = 0.0
 _circuit_open_until = 0.0
+_exit_ip_cache: str | None = None
+_exit_ip_fetched_at = 0.0
+_EXIT_IP_TTL = 60.0
+
+
+def _get_exit_ip() -> str:
+    """Return the current outbound IP used by the WB session (cached 60 s)."""
+    global _exit_ip_cache, _exit_ip_fetched_at
+    now = time.monotonic()
+    if _exit_ip_cache and now - _exit_ip_fetched_at < _EXIT_IP_TTL:
+        return _exit_ip_cache
+    try:
+        r = _get_session().get("https://httpbin.org/ip", timeout=5)
+        ip = r.json().get("origin", "unknown")
+    except Exception:
+        ip = "unavailable"
+    _exit_ip_cache = ip
+    _exit_ip_fetched_at = now
+    return ip
 
 
 @dataclass
@@ -94,8 +113,10 @@ def _get_session() -> curl_requests.Session:
 
 
 def _reset_session() -> None:
-    global _session
+    global _session, _exit_ip_cache, _exit_ip_fetched_at
     _session = None
+    _exit_ip_cache = None
+    _exit_ip_fetched_at = 0.0
 
 
 def reset_session_for_tests() -> None:
@@ -242,7 +263,7 @@ def _fetch_search_sync(params: dict[str, object]) -> _SearchResponse:
                 timeout=settings.scraper_timeout_seconds,
             )
         except curl_requests.RequestsError as exc:
-            logger.error("WB search network error for %r: %r", query, exc)
+            logger.error("WB search network error for %r (exit_ip=%s): %r", query, _get_exit_ip(), exc)
             return _SearchResponse([], status_code=0, error=f"Сеть: {exc}")
 
         pow_header = response.headers.get("x-pow") or response.headers.get("X-Pow")
@@ -253,13 +274,15 @@ def _fetch_search_sync(params: dict[str, object]) -> _SearchResponse:
                 pow_header=pow_header,
                 error=_http_error_message(response.status_code, response.text),
             )
+            exit_ip = _get_exit_ip()  # fetch before session reset
             _reset_session()
             if attempt < max_attempts - 1:
                 delay = _backoff_delay(attempt, response.headers)
                 logger.warning(
-                    "WB search blocked for %r: HTTP %s (attempt %s/%s), retrying in %.1fs",
+                    "WB search blocked for %r: HTTP %s (exit_ip=%s, attempt %s/%s), retrying in %.1fs",
                     query,
                     response.status_code,
+                    exit_ip,
                     attempt + 1,
                     max_attempts,
                     delay,
@@ -268,9 +291,10 @@ def _fetch_search_sync(params: dict[str, object]) -> _SearchResponse:
                 headers["x-queryid"] = f"qid{int(time.time() * 1000)}"
                 continue
             logger.warning(
-                "WB search blocked for %r: HTTP %s (attempt %s/%s), giving up",
+                "WB search blocked for %r: HTTP %s (exit_ip=%s, attempt %s/%s), giving up",
                 query,
                 response.status_code,
+                exit_ip,
                 attempt + 1,
                 max_attempts,
             )
