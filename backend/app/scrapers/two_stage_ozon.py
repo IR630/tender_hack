@@ -56,6 +56,8 @@ def _preview_to_product(preview: dict[str, Any]) -> dict[str, Any]:
         "description": preview.get("description"),
         "characteristics": dict(preview.get("characteristics") or {}),
         "similarity": preview.get("similarity"),
+        "rating": preview.get("rating"),
+        "reviews_count": preview.get("reviews_count"),
     }
 
 
