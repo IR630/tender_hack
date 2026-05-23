@@ -14,7 +14,9 @@ function formatPrice(price: number | null): string {
   return `${Math.round(price / 100).toLocaleString("ru-RU")} ₽`;
 }
 
-const PAGE_SIZE = 10;
+const INITIAL_SIZE = 5;
+const BATCH_SIZE = 10;
+const MAX_VISIBLE = INITIAL_SIZE + BATCH_SIZE;
 
 function productLabel(count: number): string {
   const mod10 = count % 10;
@@ -29,16 +31,17 @@ function productLabel(count: number): string {
 }
 
 export function SourceGroup({ group }: SourceGroupProps) {
-  const totalCount = Math.max(group.count, group.products.length);
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const shownCount = Math.min(visibleCount, group.products.length);
+  const availableProducts = group.products.slice(0, MAX_VISIBLE);
+  const totalCount = availableProducts.length;
+  const [visibleCount, setVisibleCount] = useState(INITIAL_SIZE);
+  const shownCount = Math.min(visibleCount, totalCount);
   const remainingCount = Math.max(0, totalCount - shownCount);
-  const nextBatchSize = Math.min(PAGE_SIZE, remainingCount);
+  const nextBatchSize = Math.min(BATCH_SIZE, remainingCount);
   const nextVisibleCount = Math.min(shownCount + nextBatchSize, totalCount);
 
-  const firstProductUrl = group.products[0]?.product_url;
+  const firstProductUrl = availableProducts[0]?.product_url;
   useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
+    setVisibleCount(INITIAL_SIZE);
   }, [group.source, totalCount, firstProductUrl]);
 
   return (
@@ -46,11 +49,11 @@ export function SourceGroup({ group }: SourceGroupProps) {
       <header className="mb-4 flex items-baseline justify-between gap-3 border-b border-rule pb-3">
         <h2 className="text-base font-semibold tracking-display text-ink">{group.display_name}</h2>
         <span className="tnum shrink-0 text-sm text-muted">
-          {group.count} · от <span className="text-ink-2">{formatPrice(group.min_price)}</span>
+          {totalCount} · от <span className="text-ink-2">{formatPrice(group.min_price)}</span>
         </span>
       </header>
 
-      {group.products.length === 0 ? (
+      {totalCount === 0 ? (
         <div className="text-sm">
           {group.status === "blocked_by_waf" ? (
             <p className="rounded-input border border-rule-2 bg-paper px-3 py-2 text-ink-2">
@@ -70,7 +73,7 @@ export function SourceGroup({ group }: SourceGroupProps) {
         </div>
       ) : (
         <ul className="space-y-3">
-          {group.products.slice(0, shownCount).map((product) => (
+          {availableProducts.slice(0, shownCount).map((product) => (
             <ProductCard key={`${product.source}-${product.product_url}`} product={product} />
           ))}
           {remainingCount > 0 && (
@@ -78,9 +81,7 @@ export function SourceGroup({ group }: SourceGroupProps) {
               <button
                 type="button"
                 onClick={() =>
-                  setVisibleCount((count) =>
-                    Math.min(count + PAGE_SIZE, group.products.length, totalCount),
-                  )
+                  setVisibleCount((count) => Math.min(count + BATCH_SIZE, totalCount))
                 }
                 className="w-full rounded-input border border-rule bg-paper px-4 py-2 text-sm text-ink-2 outline-none transition-colors hover:border-ink-2 hover:bg-paper-3 active:bg-rule focus-visible:ring-2 focus-visible:ring-focus/60"
               >
