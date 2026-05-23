@@ -17,8 +17,23 @@ from other_public_scraper.transport import fetch_html
 
 logger = logging.getLogger(__name__)
 
-PRODUCT_URL_RE = re.compile(r"/product/", re.IGNORECASE)
-PRODUCT_SITEMAP_RE = re.compile(r"product", re.IGNORECASE)
+PRODUCT_URL_RE = re.compile(
+    r"(?:"
+    r"/product[s]?/"
+    r"|/goods/"
+    r"|/item/"
+    r"|/tovar/"
+    r"|/shina/"
+    r"|/tyre[s]?/"
+    r"|/catalog/\d+"
+    r"|/catalog_shin/"
+    r"|/razmer/"
+    r"|/\d{5,}"
+    r"|[_-]shina[_-]"
+    r")",
+    re.IGNORECASE,
+)
+PRODUCT_SITEMAP_RE = re.compile(r"(?:product|catalog|tyre|shina|goods|item)", re.IGNORECASE)
 
 
 def _parse_locs(xml_text: str, *, limit: int | None = None) -> list[str]:

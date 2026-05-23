@@ -49,6 +49,8 @@ class Settings(BaseSettings):
     other_fetch_concurrency: int = 4
     other_cache_enabled: bool = False
     other_max_results: int = 8
+    # Comma-separated: wildberries,yandex_market,other,ozon — для отладки: other
+    search_enabled_sources: str = "wildberries,yandex_market,other,ozon"
 
 
 settings = Settings()

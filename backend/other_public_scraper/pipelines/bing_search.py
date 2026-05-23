@@ -1,8 +1,7 @@
-"""Live web search via Bing HTML (fallback when SearXNG engines are down)."""
+"""Optional last-resort web discovery via Bing HTML."""
 
 from __future__ import annotations
 
-import asyncio
 import asyncio
 import logging
 import re
@@ -13,6 +12,7 @@ from curl_cffi import requests as curl_requests
 from selectolax.parser import HTMLParser
 
 from other_public_scraper.config import DESKTOP_UA, DOMAIN_BLACKLIST, settings
+from other_public_scraper.diagnostics import active_diagnostics
 from other_public_scraper.models import UrlCandidate
 
 logger = logging.getLogger(__name__)
@@ -86,7 +86,7 @@ def _fetch_bing_sync(query: str, *, limit: int) -> list[UrlCandidate]:
         "https://www.bing.com/search",
         params={"q": query, "setlang": "ru", "count": str(min(limit + 5, 30))},
         headers={"User-Agent": DESKTOP_UA, "Accept-Language": "ru-RU,ru;q=0.9"},
-        timeout=settings.other_request_timeout,
+        timeout=settings.other_bing_timeout_seconds,
     )
     response.raise_for_status()
     return _parse_bing_html(response.text, limit=limit)
@@ -94,28 +94,20 @@ def _fetch_bing_sync(query: str, *, limit: int) -> list[UrlCandidate]:
 
 async def search_bing_urls(query: str, *, limit: int = 20) -> list[UrlCandidate]:
     t0 = time.perf_counter()
-    merged: dict[str, UrlCandidate] = {}
+    diag = active_diagnostics()
+    search_query = (
+        f"{query} купить цена "
+        f"-site:wildberries.ru -site:ozon.ru -site:market.yandex.ru "
+        f"-site:gsmarena.com -site:apple.com"
+    )
 
-    def _merge(batch: list[UrlCandidate]) -> None:
-        for item in batch:
-            key = item.url.split("#")[0]
-            if key not in merged:
-                merged[key] = item
+    try:
+        results = await asyncio.to_thread(_fetch_bing_sync, search_query, limit=limit)
+    except Exception as exc:
+        diag.bing_errors.append(f"{search_query!r}: {exc}")
+        logger.warning("other_bing failed query=%r: %s", search_query, exc)
+        results = []
 
-    primary_queries = [f"{query} купить", query]
-    domains = [d.strip() for d in settings.other_precrawl_domains.split(",") if d.strip()]
-    all_queries = primary_queries + [f"{query} site:{domains[0]}"] if domains else primary_queries
-
-    for q in all_queries:
-        if len(merged) >= limit:
-            break
-        try:
-            batch = await asyncio.to_thread(_fetch_bing_sync, q, limit=limit)
-            _merge(batch)
-        except Exception as exc:
-            logger.warning("other_bing failed query=%r: %s", q, exc)
-
-    results = list(merged.values())[:limit]
     logger.info(
         "other_bing query=%r results=%d latency_ms=%d",
         query,

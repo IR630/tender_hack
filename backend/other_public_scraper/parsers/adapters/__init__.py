@@ -5,6 +5,7 @@ from other_public_scraper.parsers.adapters import (
     koleso,
     lamoda,
     mvideo,
+    notik,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "koleso",
     "lamoda",
     "mvideo",
+    "notik",
 ]

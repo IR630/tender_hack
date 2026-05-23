@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from curl_cffi import requests as curl_requests
 
 from other_public_scraper.config import DESKTOP_UA, settings
+from other_public_scraper.diagnostics import active_diagnostics
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,7 @@ async def fetch_html(url: str) -> HttpResult | None:
         async with _fetch_semaphore:
             result = await asyncio.to_thread(_do)
         if result.status_code >= 400:
+            active_diagnostics().note_failure(f"HTTP {result.status_code} — {url[:80]}")
             logger.info(
                 "other_fetch_http_error url=%s status=%d latency_ms=%d",
                 url,
@@ -69,5 +71,6 @@ async def fetch_html(url: str) -> HttpResult | None:
         )
         return result
     except Exception as exc:
+        active_diagnostics().note_failure(f"Fetch error — {url[:80]}: {exc}")
         logger.info("other_fetch_exception url=%s error=%s", url, exc)
         return None

@@ -29,11 +29,15 @@ export function SourceGroup({ group }: SourceGroupProps) {
               {group.error ?? "Ozon: доступ временно ограничен защитой маркетплейса"}
             </p>
           ) : group.error ? (
-            <p className="rounded-md border border-amber-900/60 bg-amber-950/30 px-3 py-2 text-amber-200">
+            <p className="whitespace-pre-wrap rounded-md border border-amber-900/60 bg-amber-950/30 px-3 py-2 text-sm text-amber-100">
               {group.error}
             </p>
+          ) : group.source === "other" ? (
+            <p className="text-slate-400">
+              Нет результатов из сети. Повторите поиск — диагностика появится автоматически.
+            </p>
           ) : (
-            <p className="text-slate-400">Пока нет данных — модуль источника в разработке.</p>
+            <p className="text-slate-400">Пока нет данных по этому источнику.</p>
           )}
         </div>
       ) : (

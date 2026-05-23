@@ -33,3 +33,24 @@ async def test_search_other_sources_retry_corrected(monkeypatch):
     )
     assert len(products) == 1
     assert calls == ["прнтер", "принтер"]
+    assert other_search_module.get_last_error() is None
+
+
+@pytest.mark.asyncio
+async def test_search_other_sources_sets_error_when_empty(monkeypatch):
+    async def fake_run(query, region):
+        return []
+
+    monkeypatch.setattr(other_search_module, "_run_search", fake_run)
+    monkeypatch.setattr(other_search_module.settings, "other_cache_enabled", False)
+    monkeypatch.setattr(
+        other_search_module,
+        "get_diagnostics",
+        lambda: type("D", (), {"format_user_message": lambda self: "diag: empty"})(),
+    )
+
+    products = await other_search_module.search_other_sources(
+        SearchRequest(query="тест", region="moscow"),
+    )
+    assert products == []
+    assert other_search_module.get_last_error() is not None

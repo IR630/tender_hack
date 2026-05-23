@@ -7,6 +7,8 @@ from urllib.parse import urlparse
 import httpx
 
 from other_public_scraper.config import DOMAIN_BLACKLIST, settings
+from other_public_scraper.debug_log import agent_log
+from other_public_scraper.diagnostics import active_diagnostics
 from other_public_scraper.models import UrlCandidate
 
 logger = logging.getLogger(__name__)
@@ -29,9 +31,19 @@ async def search_other_urls(query: str, *, limit: int = 20) -> list[UrlCandidate
     if cache_key in _searxng_cache:
         return _searxng_cache[cache_key][:limit]
 
-    q = f"{query} -site:wildberries.ru -site:ozon.ru -site:market.yandex.ru"
+    q = (
+        f"{query} купить цена "
+        f"-site:wildberries.ru -site:ozon.ru -site:market.yandex.ru "
+        f"-site:gsmarena.com -site:nanoreview.net -site:apple.com"
+    )
     url = f"{settings.searxng_url.rstrip('/')}/search"
     params = {"q": q, "format": "json", "safesearch": "0", "language": "ru-RU"}
+    agent_log(
+        hypothesis_id="H2",
+        location="searxng.py:search_other_urls",
+        message="searxng_query",
+        data={"query": query, "searxng_q": q},
+    )
 
     t0 = time.perf_counter()
     try:
@@ -75,6 +87,8 @@ async def search_other_urls(query: str, *, limit: int = 20) -> list[UrlCandidate
     )
     if not results:
         unresponsive = payload.get("unresponsive_engines") or []
+        diag = active_diagnostics()
+        diag.searxng_unresponsive = [(str(a), str(b)) for a, b in unresponsive]
         if unresponsive:
             logger.warning(
                 "other_searxng_zero query=%r unresponsive_engines=%s — "
@@ -87,5 +101,6 @@ async def search_other_urls(query: str, *, limit: int = 20) -> list[UrlCandidate
                 "other_searxng_zero query=%r — поисковики ответили, но URL не найдены",
                 query,
             )
-    _searxng_cache[cache_key] = results
+    else:
+        _searxng_cache[cache_key] = results
     return results

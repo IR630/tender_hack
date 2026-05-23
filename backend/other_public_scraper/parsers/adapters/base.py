@@ -19,9 +19,10 @@ def get_adapter(url: str):
         koleso,
         lamoda,
         mvideo,
+        notik,
     )
 
-    for module in (dns_shop, citilink, mvideo, chetyre_tochki, koleso, lamoda):
+    for module in (dns_shop, citilink, mvideo, notik, chetyre_tochki, koleso, lamoda):
         adapter = module.adapter
         if adapter.supports(url):
             return adapter

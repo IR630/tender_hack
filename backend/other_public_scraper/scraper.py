@@ -16,9 +16,13 @@ from other_public_scraper.ml.query_classifier import classify_query
 from other_public_scraper.ml.relevance_filter import cosine_similarity_batch, rank_candidates
 from other_public_scraper.models import MeiliProductDoc, OtherExtractResult, UrlCandidate
 from other_public_scraper.pipelines.page_extractor import extract_product_from_html
+from other_public_scraper.debug_log import agent_log
+from other_public_scraper.diagnostics import active_diagnostics, reset_diagnostics
+from other_public_scraper.pipelines.catalog_harvest import expand_listing_candidates
 from other_public_scraper.pipelines.web_search import search_live_urls
 from other_public_scraper.storage.meili import search_meili, upsert_products
 from other_public_scraper.transport import fetch_html
+from other_public_scraper.url_heuristics import filter_and_sort_candidates, is_rejected_url, url_quality_score
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +43,7 @@ def _passes_category_sanity(title: str, query: str, category: str) -> bool:
     title_lower = title.lower()
     query_lower = query.lower()
     if category == "tires":
-        return bool(TIRES_RE.search(title) or TIRES_RE.search(query))
+        return bool(TIRES_RE.search(title) or TIRES_RE.search(query) or "шин" in query_lower)
     if category == "orgtech":
         if any(brand in title_lower or brand in query_lower for brand in ORGTECH_BRANDS):
             return True
@@ -76,27 +80,16 @@ async def _fetch_and_extract(
     if use_meili_cache:
         title_sim = cosine_similarity_batch(query, candidate.title)
         if title_sim < settings.other_title_similarity_threshold:
-            logger.info(
-                "other_extract_skip reason=meili_low_similarity url=%s sim=%.3f threshold=%.2f",
-                url_short,
-                title_sim,
-                settings.other_title_similarity_threshold,
+            active_diagnostics().note_failure(
+                f"Meili: низкая релевантность {title_sim:.2f} — {url_short}"
             )
+            active_diagnostics().extract_failed += 1
             return None
         if not _passes_category_sanity(candidate.title, query, category):
-            logger.info(
-                "other_extract_skip reason=meili_category_sanity url=%s category=%s title=%r",
-                url_short,
-                category,
-                candidate.title[:60],
-            )
+            active_diagnostics().extract_failed += 1
+            active_diagnostics().note_failure(f"Категория не прошла проверку — {url_short}")
             return None
-        logger.info(
-            "other_extract_ok method=meili_cache url=%s title=%r price=%d",
-            url_short,
-            candidate.title[:60],
-            candidate.cached_price_rub,
-        )
+        active_diagnostics().extract_ok += 1
         return OtherExtractResult(
             title=candidate.title,
             description=candidate.cached_description,
@@ -111,58 +104,60 @@ async def _fetch_and_extract(
 
     result = await fetch_html(candidate.url)
     if result is None:
+        active_diagnostics().fetch_failed += 1
         return None
+    active_diagnostics().fetch_ok += 1
     extracted = extract_product_from_html(
         result.body,
         candidate.url,
         relevance_score=candidate.similarity,
     )
     if extracted is None:
-        logger.info(
-            "other_extract_skip reason=no_title_price_image url=%s source=%s",
-            url_short,
-            candidate.source,
+        active_diagnostics().extract_failed += 1
+        active_diagnostics().note_failure(f"Нет title/price/image — {url_short}")
+        agent_log(
+            hypothesis_id="H4",
+            location="scraper.py:_fetch_and_extract",
+            message="extract_failed",
+            data={"url": url_short, "reason": "missing_fields"},
         )
         return None
     title_sim = cosine_similarity_batch(query, extracted.title)
     if title_sim < settings.other_title_similarity_threshold:
-        logger.info(
-            "other_extract_skip reason=low_title_similarity url=%s sim=%.3f title=%r",
-            url_short,
-            title_sim,
-            extracted.title[:60],
+        active_diagnostics().extract_failed += 1
+        active_diagnostics().note_failure(
+            f"Низкая релевантность {title_sim:.2f} — {extracted.title[:50]}"
+        )
+        agent_log(
+            hypothesis_id="H5",
+            location="scraper.py:_fetch_and_extract",
+            message="relevance_rejected",
+            data={"url": url_short, "title": extracted.title[:80], "title_sim": title_sim},
         )
         return None
     if not _passes_category_sanity(extracted.title, query, category):
-        logger.info(
-            "other_extract_skip reason=category_sanity url=%s category=%s title=%r",
-            url_short,
-            category,
-            extracted.title[:60],
-        )
+        active_diagnostics().extract_failed += 1
+        active_diagnostics().note_failure(f"Категория не прошла проверку — {extracted.title[:50]}")
         return None
     extracted.relevance_score = title_sim
-    logger.info(
-        "other_extract_ok method=%s url=%s title=%r price=%d sim=%.3f",
-        extracted.extraction_method,
-        url_short,
-        extracted.title[:60],
-        extracted.price_rub,
-        title_sim,
-    )
+    active_diagnostics().extract_ok += 1
     return extracted
 
 
 async def _search_once(query: str, region: str) -> list[OtherExtractResult]:
     _ = region
+    diag = reset_diagnostics(query)
     t0 = time.perf_counter()
     category = classify_query(query)
     logger.info("other_search_start query=%r region=%s category=%s", query, region, category)
 
     live_hits = await search_live_urls(query, limit=settings.other_max_searxng_urls)
+    diag.live_urls = len(live_hits)
+    diag.live_sample = [c.url[:90] for c in live_hits[:5]]
     meili_hits: list[UrlCandidate] = []
     if settings.other_meili_read_enabled:
         meili_hits = await search_meili(query, limit=10)
+    diag.meili_hits = len(meili_hits)
     logger.info(
         "other_search_sources query=%r meili=%d live=%d meili_read=%s",
         query,
@@ -178,7 +173,26 @@ async def _search_once(query: str, region: str) -> list[OtherExtractResult]:
         )
 
     candidates = _merge_candidates(meili_hits, live_hits)
-    logger.info("other_search_merged query=%r candidates=%d", query, len(candidates))
+    diag.candidates_merged = len(candidates)
+
+    candidates.sort(key=lambda c: url_quality_score(c.url), reverse=True)
+    candidates = await expand_listing_candidates(candidates)
+
+    pre_filter = len(candidates)
+    rejected_urls = [c.url[:90] for c in candidates if is_rejected_url(c.url)]
+    candidates = filter_and_sort_candidates(candidates)
+    agent_log(
+        hypothesis_id="H3",
+        location="scraper.py:_search_once",
+        message="url_filter",
+        data={
+            "query": query,
+            "before": pre_filter,
+            "after": len(candidates),
+            "rejected_sample": rejected_urls[:5],
+            "top_urls": [(c.url[:90], url_quality_score(c.url)) for c in candidates[:5]],
+        },
+    )
 
     ranked = rank_candidates(
         query,
@@ -195,6 +209,7 @@ async def _search_once(query: str, region: str) -> list[OtherExtractResult]:
         ranked = sorted(candidates, key=lambda c: c.title, reverse=False)[:8]
     else:
         logger.info("other_search_ranked query=%r ranked=%d", query, len(ranked))
+    diag.candidates_ranked = len(ranked)
 
     fetched = await asyncio.gather(
         *[_fetch_and_extract(candidate, query, category) for candidate in ranked]
@@ -210,6 +225,19 @@ async def _search_once(query: str, region: str) -> list[OtherExtractResult]:
         len(products),
         skipped,
         int((time.perf_counter() - t0) * 1000),
+    )
+    agent_log(
+        hypothesis_id="H4",
+        location="scraper.py:_search_once",
+        message="search_complete",
+        data={
+            "query": query,
+            "live_urls": diag.live_urls,
+            "live_provider": diag.live_provider,
+            "extract_ok": diag.extract_ok,
+            "extract_failed": diag.extract_failed,
+            "products_count": len(products),
+        },
     )
     if not products and ranked:
         logger.warning(
@@ -247,5 +275,7 @@ async def search_other(query: str, region: str = "moscow") -> list[OtherExtractR
             timeout=settings.other_search_timeout_seconds,
         )
     except TimeoutError:
+        diag = active_diagnostics()
+        diag.timed_out = True
         logger.warning("other search timeout query=%r", query)
         return []

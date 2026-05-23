@@ -7,9 +7,16 @@ from app.core.cache import cache_get, cache_set
 from app.core.config import settings
 from app.core.models import Product, SearchRequest
 from app.core.regions import resolve_region
+from other_public_scraper.diagnostics import get_diagnostics
 from other_public_scraper.scraper import search_other
 
 logger = logging.getLogger(__name__)
+
+_last_error: str | None = None
+
+
+def get_last_error() -> str | None:
+    return _last_error
 
 
 def _cache_key(region: str, query: str) -> str:
@@ -65,6 +72,8 @@ async def search_other_sources(
     *,
     original_query: str | None = None,
 ) -> list[Product]:
+    global _last_error
+    _last_error = None
     _ = resolve_region(request.region)
     original = (original_query or request.query).strip()
     corrected = request.query.strip()
@@ -73,13 +82,24 @@ async def search_other_sources(
         if candidate and candidate not in attempts:
             attempts.append(candidate)
 
+    last_diag_message: str | None = None
     for query in attempts:
         try:
             products = await _run_search(query, request.region)
             if products:
+                _last_error = None
                 return products
+            diag = get_diagnostics()
+            if diag is not None:
+                last_diag_message = diag.format_user_message()
         except TimeoutError:
             logger.warning("other source timeout query=%r", query)
-        except Exception:
+            last_diag_message = f"Другие источники: таймаут поиска по запросу {query!r}"
+        except Exception as exc:
             logger.exception("other source failed query=%r", query)
+            last_diag_message = f"Другие источники: {type(exc).__name__}: {exc}"
+
+    _last_error = last_diag_message or (
+        "Другие источники: 0 товаров — не удалось получить данные из сети"
+    )
     return []
