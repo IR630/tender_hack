@@ -40,7 +40,11 @@ class OzonScraper(BaseScraper):
                 characteristics=dict(item.get("characteristics") or {}),
                 description=str(item.get("description") or ""),
                 rating=float(item["rating"]) if item.get("rating") is not None else None,
-                reviews_count=int(item["reviews_count"]) if item.get("reviews_count") is not None else None,
+                reviews_count=(
+                    int(item["reviews_count"])
+                    if item.get("reviews_count") is not None
+                    else None
+                ),
             )
             for item in raw
         ]
