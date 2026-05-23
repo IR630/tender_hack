@@ -25,8 +25,8 @@ class Settings(BaseSettings):
     searxng_url: str = "http://localhost:8080"
     cache_ttl_seconds: int = 6 * 60 * 60
     scraper_timeout_seconds: float = 8.0
-    wb_min_request_interval_seconds: float = 1.5
-    wb_circuit_breaker_seconds: float = 10 * 60
+    wb_min_request_interval_seconds: float = 3.0
+    wb_circuit_breaker_seconds: float = 15 * 60
     wb_cache_enabled: bool = True
     wb_warmup_enabled: bool = True
     wb_session_max_age_seconds: float = 25 * 60
@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     wb_proxy_timeout_seconds: float = 20.0
     wb_proxy_parallel_attempts: int = 4
     wb_proxy_race_rounds: int = 8
+    # Default 30 preserves the prior hardcoded MAX_RESULTS. PR #9 on main used 5
+    # for tighter throttling; raise via env if you need that.
+    wb_max_results: int = 30
     ym_cache_enabled: bool = True
     ym_search_max_pages: int = 3
     ozon_use_browser: bool = True

@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.core.config import settings
+
 SEARCH_URL = "https://search.wb.ru/exactmatch/ru/common/v4/search"
 BASKET_HOST_FMT = "https://basket-{host:02d}.wbbasket.ru"
 PRODUCT_URL_FMT = "https://www.wildberries.ru/catalog/{nm}/detail.aspx"
 
-MAX_RESULTS = 30
+MAX_RESULTS = settings.wb_max_results
 BASKET_MIN, BASKET_MAX = 1, 50
 
 HOST_HINT_RANGES: list[tuple[int, int]] = [
