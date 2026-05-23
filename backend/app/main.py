@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 
 import structlog
 from fastapi import FastAPI
@@ -20,16 +21,11 @@ logging.basicConfig(
     format="%(message)s" if settings.debug else "%(asctime)s %(levelname)-7s %(name)s: %(message)s",
 )
 
-app = FastAPI(title=settings.app_name, version="0.1.0")
-app.include_router(search.router)
-app.include_router(regions.router)
-app.include_router(wb_metrics.router)
-
 _startup_logger = logging.getLogger("app.startup")
 
 
-@app.on_event("startup")
-async def log_wb_proxy_config() -> None:
+@asynccontextmanager
+async def lifespan(_: FastAPI):
     if settings.wb_proxy.strip():
         _startup_logger.info(
             "WB proxy enabled (max_retries=%s)",
@@ -37,6 +33,13 @@ async def log_wb_proxy_config() -> None:
         )
     else:
         _startup_logger.warning("WB proxy not configured — direct IP will be used")
+    yield
+
+
+app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
+app.include_router(search.router)
+app.include_router(regions.router)
+app.include_router(wb_metrics.router)
 
 
 @app.get("/health")

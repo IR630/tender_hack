@@ -82,8 +82,6 @@ def _host(url: str) -> str:
 def is_rejected_url(url: str) -> bool:
     """True when URL is clearly not a product page worth fetching."""
     host = _host(url)
-    if host in _FETCH_BLOCKED_HOSTS:
-        return True
     if any(host == h or host.endswith("." + h) for h in _REJECT_HOSTS):
         return True
     if _REJECT_PATH_RE.search(urlparse(url).path + urlparse(url).query):
@@ -91,6 +89,12 @@ def is_rejected_url(url: str) -> bool:
     if _FOREIGN_LOCALE_RE.search(url):
         return True
     return False
+
+
+def is_fetch_blocked(url: str) -> bool:
+    """Hosts that block plain HTTP clients (401/403). Still valid product pages,
+    but the fetcher should expect failure / use a stealth path."""
+    return _host(url) in _FETCH_BLOCKED_HOSTS
 
 
 def is_ru_domain(url: str) -> bool:

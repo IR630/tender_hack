@@ -73,3 +73,9 @@ class OzonScraper(BaseScraper):
 
 
 scraper = OzonScraper()
+
+
+
+
+
+

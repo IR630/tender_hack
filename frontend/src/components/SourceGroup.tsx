@@ -36,9 +36,10 @@ export function SourceGroup({ group }: SourceGroupProps) {
   const nextBatchSize = Math.min(PAGE_SIZE, remainingCount);
   const nextVisibleCount = Math.min(shownCount + nextBatchSize, totalCount);
 
+  const firstProductUrl = group.products[0]?.product_url;
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [group.source, totalCount, group.products[0]?.product_url]);
+  }, [group.source, totalCount, firstProductUrl]);
 
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
