@@ -39,7 +39,8 @@ Typical time: **1–3 секунды**.
 | `_fetch_search_sync()` | Синхронный HTTP GET к API WB |
 | `_assemble_products()` | Превращает JSON WB в наши объекты |
 | `_throttle_wb()` | Пауза ~1.5 с между запросами — чтобы WB не заблокировал IP |
-| Circuit breaker | Если WB два раза ответил 429 — не долбим его 10 минут |
+| Повтор + backoff | При 429 повторяем запрос несколько раз с нарастающей паузой (учитываем заголовок `Retry-After`, если WB его прислал) |
+| Circuit breaker | Если попытки исчерпаны блокировкой — не долбим WB 10 минут |
 
 ---
 
@@ -47,7 +48,7 @@ Typical time: **1–3 секунды**.
 
 **URL:** `https://search.wb.ru/exactmatch/ru/common/v4/search`
 
-**Библиотека:** `curl_cffi` — притворяется браузером Chrome (TLS fingerprint), иначе WB часто отвечает 429.
+**Библиотека:** `curl_cffi` — притворяется браузером Chrome (TLS fingerprint), иначе WB часто отвечает 429. Версию «браузера» можно менять настройкой `WB_IMPERSONATE` (по умолчанию `chrome131`) — пригодится, если WB снова начнёт резать устаревший отпечаток.
 
 **Регион:** параметр `dest` — число из `core/regions.py` (для Москвы это `-1257786`).
 
@@ -100,6 +101,7 @@ Typical time: **1–3 секунды**.
 ## Настройки (.env)
 
 ```env
+WB_IMPERSONATE=chrome131
 WB_MIN_REQUEST_INTERVAL_SECONDS=1.5
 WB_CIRCUIT_BREAKER_SECONDS=600
 WB_CACHE_ENABLED=true

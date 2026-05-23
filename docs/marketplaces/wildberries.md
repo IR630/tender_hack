@@ -29,7 +29,7 @@ Redis wb:search:{region}:{query} ?
          │
          ▼
     GET search.wb.ru/exactmatch/ru/common/v4/search
-         │ curl_cffi, impersonate chrome120
+         │ curl_cffi, impersonate chrome131 (настройка wb_impersonate)
          ▼
     JSON products[] → _assemble_products → Redis set → return (max 30)
 ```
@@ -40,7 +40,7 @@ Redis wb:search:{region}:{query} ?
 |----------|----------|
 | URL | `https://search.wb.ru/exactmatch/ru/common/v4/search` |
 | Метод | GET |
-| Библиотека | **curl_cffi** (`Session(impersonate="chrome120")`) |
+| Библиотека | **curl_cffi** (`Session(impersonate=settings.wb_impersonate)`, дефолт `chrome131`) |
 | Query params | `query`, `dest`, `resultset=catalog`, `curr=rub`, `lang=ru`, `appType=1`, `page=1` |
 | Timeout | `scraper_timeout_seconds` (8 с) |
 
@@ -49,6 +49,8 @@ Redis wb:search:{region}:{query} ?
 - `Origin`, `Referer`: `wildberries.ru`
 - `x-userid: 0`
 - `x-queryid`: `qid{timestamp_ms}` — уникальный на каждую попытку
+- `User-Agent` / `sec-ch-ua` **не задаём вручную** — их выставляет curl_cffi под
+  выбранный профиль `impersonate`, чтобы UA-строка не расходилась с TLS-отпечатком
 
 ## Парсинг JSON → Product
 
@@ -77,9 +79,9 @@ https://basket-{host}/vol{vol}/part{part}/{nm}/images/big/1.webp
 | Механизм | Env | Поведение |
 |----------|-----|-----------|
 | Rate limit | `WB_MIN_REQUEST_INTERVAL_SECONDS=1.5` | asyncio Lock + sleep + 20% jitter |
-| Circuit breaker | `WB_CIRCUIT_BREAKER_SECONDS=600` | после HTTP 429/498 на 2-й попытке — 10 мин пауза |
-| Session reset | — | новый Session при 429 |
-| Retry | 2 попытки | новый `x-queryid` |
+| Retry + backoff | `WB_RETRY_MAX_ATTEMPTS=3`, `WB_RETRY_BACKOFF_BASE_SECONDS=0.5`, `WB_RETRY_MAX_BACKOFF_SECONDS=5` | при 429/498 — повтор с экспоненциальным backoff + jitter; учитывается заголовок `Retry-After` (под потолком); новый `x-queryid` |
+| Session reset | — | новый Session при каждой блокировке |
+| Circuit breaker | `WB_CIRCUIT_BREAKER_SECONDS=600` | когда попытки исчерпаны блокировкой — 10 мин пауза без обращений к WB |
 
 ### Коды ошибок
 
@@ -112,7 +114,7 @@ https://basket-{host}/vol{vol}/part{part}/{nm}/images/big/1.webp
 
 | Пакет | Роль |
 |-------|------|
-| curl_cffi | TLS fingerprint Chrome 120 |
+| curl_cffi | TLS fingerprint Chrome (профиль `wb_impersonate`, дефолт `chrome131`) |
 | asyncio | throttle, `to_thread` для sync HTTP |
 | redis | через `cache.py` |
 
@@ -125,7 +127,11 @@ https://basket-{host}/vol{vol}/part{part}/{nm}/images/big/1.webp
 ## Конфиг (.env)
 
 ```env
+WB_IMPERSONATE=chrome131
 WB_MIN_REQUEST_INTERVAL_SECONDS=1.5
+WB_RETRY_MAX_ATTEMPTS=3
+WB_RETRY_BACKOFF_BASE_SECONDS=0.5
+WB_RETRY_MAX_BACKOFF_SECONDS=5
 WB_CIRCUIT_BREAKER_SECONDS=600
 WB_CACHE_ENABLED=true
 SCRAPER_TIMEOUT_SECONDS=8

@@ -187,3 +187,86 @@ def test_image_url_uses_host_hint():
     host = wb._host_for_nm(nm)
     url = wb._image_url(host, nm)
     assert url.startswith(f"https://basket-{host:02d}.wbbasket.ru/")
+
+
+def test_session_uses_configured_impersonate(monkeypatch):
+    captured = {}
+
+    class FakeSession:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr(wb.curl_requests, "Session", FakeSession)
+    wb._reset_session()
+    wb._get_session()
+    assert captured.get("impersonate") == wb.settings.wb_impersonate
+
+
+def test_browser_headers_have_no_hardcoded_user_agent():
+    # curl_cffi owns the UA so it stays consistent with the impersonated TLS fingerprint.
+    assert "user-agent" not in {key.lower() for key in wb.BROWSER_HEADERS}
+
+
+def test_retry_after_header_respected(monkeypatch):
+    responses = [(429, {"Retry-After": "2"}), (200, {})]
+    calls = {"i": 0}
+
+    class FakeResponse:
+        def __init__(self, status_code: int, headers: dict):
+            self.status_code = status_code
+            self.headers = headers
+            self.text = ""
+
+        def json(self) -> dict:
+            return {"products": _search_payload()["products"]}
+
+    class FakeSession:
+        def get(self, *args, **kwargs):
+            status, headers = responses[calls["i"]]
+            calls["i"] += 1
+            return FakeResponse(status, headers)
+
+    slept: list[float] = []
+    monkeypatch.setattr(wb, "_get_session", lambda: FakeSession())
+    monkeypatch.setattr(wb, "_reset_session", lambda: None)
+    monkeypatch.setattr(wb, "_trip_circuit", lambda: None)
+    monkeypatch.setattr(wb.time, "sleep", lambda s: slept.append(s))
+
+    result = wb._fetch_search_sync({"query": "шины"})
+
+    assert result.error is None
+    assert len(result.products) == 3
+    assert len(slept) == 1
+    # Retry-After=2s honored, plus jitter up to 25%, capped at wb_retry_max_backoff_seconds.
+    assert 2.0 <= slept[0] <= 2.5
+
+
+def test_backoff_grows_and_trips_circuit(monkeypatch):
+    class FakeResponse:
+        status_code = 429
+        text = "blocked"
+        headers: dict = {}
+
+    calls = {"count": 0}
+
+    class FakeSession:
+        def get(self, *args, **kwargs):
+            calls["count"] += 1
+            return FakeResponse()
+
+    slept: list[float] = []
+    tripped = {"v": False}
+    monkeypatch.setattr(wb, "_get_session", lambda: FakeSession())
+    monkeypatch.setattr(wb, "_reset_session", lambda: None)
+    monkeypatch.setattr(wb, "_trip_circuit", lambda: tripped.__setitem__("v", True))
+    monkeypatch.setattr(wb.time, "sleep", lambda s: slept.append(s))
+
+    result = wb._fetch_search_sync({"query": "шины"})
+
+    assert calls["count"] == wb.settings.wb_retry_max_attempts
+    assert len(slept) == wb.settings.wb_retry_max_attempts - 1
+    if len(slept) >= 2:
+        assert slept[1] > slept[0]  # exponential growth between attempts
+    assert tripped["v"] is True
+    assert result.products == []
+    assert "429" in (result.error or "")
