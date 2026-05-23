@@ -67,10 +67,29 @@ class _SearchResponse:
     error: str | None = None
 
 
+def _build_proxy_dict() -> dict[str, str] | None:
+    raw = settings.wb_proxy.strip()
+    if not raw:
+        return None
+    # Accept both ready URL (http://user:pass@host:port) and the
+    # key_proxy.txt format (host:port@user:pass).
+    if raw.startswith(("http://", "https://", "socks5://")):
+        url = raw
+    else:
+        # pool.proxy.market:10000@user:pass  →  http://user:pass@host:port
+        host_port, _, user_pass = raw.partition("@")
+        url = f"http://{user_pass}@{host_port}"
+    return {"http": url, "https": url}
+
+
 def _get_session() -> curl_requests.Session:
     global _session
     if _session is None:
-        _session = curl_requests.Session(impersonate=settings.wb_impersonate)
+        proxies = _build_proxy_dict()
+        _session = curl_requests.Session(
+            impersonate=settings.wb_impersonate,
+            proxies=proxies,
+        )
     return _session
 
 

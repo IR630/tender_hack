@@ -53,6 +53,9 @@ export OZON_BROWSER_WARMUP_HOME="${OZON_BROWSER_WARMUP_HOME:-true}"
 export OZON_ENRICH_DELAY_SECONDS="${OZON_ENRICH_DELAY_SECONDS:-5}"
 export OZON_ENRICH_WAIT_SECONDS="${OZON_ENRICH_WAIT_SECONDS:-15}"
 export OZON_PIPELINE_TIMEOUT_SECONDS="${OZON_PIPELINE_TIMEOUT_SECONDS:-180}"
+if [[ -z "${WB_PROXY:-}" && -f "${ROOT}/key_proxy.txt" ]]; then
+  export WB_PROXY="$(cat "${ROOT}/key_proxy.txt")"
+fi
 
 run_api() {
   uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
