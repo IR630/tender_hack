@@ -93,7 +93,7 @@ export function SourceGroup({ group }: SourceGroupProps) {
               </button>
             </li>
           )}
-        </>
+        </ul>
       )}
     </section>
   );

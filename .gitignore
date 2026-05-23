@@ -235,3 +235,6 @@ backend/data/
 
 # Docker
 docker/searxng/limiter.toml
+
+# Прокси-креды — не коммитить
+key_proxy.txt

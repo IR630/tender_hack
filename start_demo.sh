@@ -77,6 +77,22 @@ else
   echo "WARN: WB_PROXY not set — Wildberries will use direct IP"
 fi
 
+# Chrome для Ozon nodriver — автоопределение, если CHROME_BIN не задан явно
+if [[ -z "${CHROME_BIN:-}" ]]; then
+  for candidate in google-chrome google-chrome-stable chromium chromium-browser; do
+    if command -v "${candidate}" >/dev/null 2>&1; then
+      CHROME_BIN="$(command -v "${candidate}")"
+      export CHROME_BIN
+      break
+    fi
+  done
+fi
+if [[ -n "${CHROME_BIN:-}" ]]; then
+  echo "CHROME_BIN=${CHROME_BIN}"
+else
+  echo "WARN: браузер не найден — установите google-chrome (Ozon через nodriver не запустится)"
+fi
+
 run_api() {
   uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 }
