@@ -21,6 +21,12 @@ logger = logging.getLogger(__name__)
 
 _rhythm_state = RhythmState()
 
+_WB_EMPTY_CATALOG_FALLBACKS: dict[str, list[str]] = {
+    "комп": ["компьютер", "компьютеры", "системный блок"],
+    "ноут": ["ноутбук", "ноутбуки"],
+    "тел": ["телефон", "смартфон"],
+}
+
 
 def _cache_key(region: str, query: str) -> str:
     return f"wb:search:{region}:{query.strip().lower()}"
@@ -96,6 +102,21 @@ class WBParser:
 
         await wait_before_request(_rhythm_state)
         attempt = await wb_session.fetch_search(params)
+        if attempt.error and attempt.error == "Wildberries вернул пустой каталог":
+            for fallback in _WB_EMPTY_CATALOG_FALLBACKS.get(query.lower(), []):
+                if fallback.lower() == query.lower():
+                    continue
+                fallback_params = {**params, "query": fallback}
+                await wait_before_request(_rhythm_state)
+                retry = await wb_session.fetch_search(fallback_params)
+                if retry.products:
+                    attempt = retry
+                    logger.info("WB empty catalog fallback %r -> %r", query, fallback)
+                    break
+                if retry.error and retry.error != "Wildberries вернул пустой каталог":
+                    attempt = retry
+                    break
+
         if attempt.error:
             logger.warning("WB parser failed for query=%r: %s", query, attempt.error)
             return [], attempt.error

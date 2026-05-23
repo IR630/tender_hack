@@ -14,12 +14,12 @@ router = APIRouter(prefix="/images", tags=["images"])
 
 
 @router.get("/proxy")
-async def proxy_image(url: str) -> Response:
+async def proxy_image(url: str, domain: str = "") -> Response:
     normalized = normalize_marketplace_image_url(url)
     parsed = urlparse(normalized)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         raise HTTPException(status_code=400, detail="invalid image url")
-    if not is_allowed_image_host(normalized):
+    if not is_allowed_image_host(normalized, source_domain=domain):
         raise HTTPException(status_code=403, detail="image host not allowed")
 
     try:

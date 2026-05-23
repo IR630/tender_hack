@@ -1,4 +1,4 @@
-from app.utils.image_urls import normalize_marketplace_image_url
+from app.utils.image_urls import is_allowed_image_host, normalize_marketplace_image_url
 
 
 def test_normalize_yandex_market_image_to_orig() -> None:
@@ -12,3 +12,9 @@ def test_normalize_yandex_market_image_to_orig() -> None:
 def test_normalize_other_image_urls_unchanged() -> None:
     url = "https://ir.ozone.ru/s3/multimedia-1-f/wc1000/9927237615.jpg"
     assert normalize_marketplace_image_url(url) == url
+
+
+def test_is_allowed_image_host_for_source_domain_cdn() -> None:
+    url = "https://cdn.digital-razor.ru/path/product.webp"
+    assert is_allowed_image_host(url, source_domain="digital-razor.ru") is True
+    assert is_allowed_image_host(url) is False

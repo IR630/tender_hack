@@ -22,11 +22,15 @@ function nextBasketUrl(url: string): string | null {
   return url.replace(/basket-\d+/, `basket-${String(host + 1).padStart(2, "0")}`);
 }
 
-function proxiedImageUrl(url: string): string {
+function proxiedImageUrl(url: string, sourceDomain: string): string {
   if (!url.startsWith("http")) {
     return url;
   }
-  return `/api/images/proxy?url=${encodeURIComponent(url)}`;
+  const params = new URLSearchParams({ url });
+  if (sourceDomain) {
+    params.set("domain", sourceDomain);
+  }
+  return `/api/images/proxy?${params.toString()}`;
 }
 
 function nextImageFallback(url: string): string | null {
@@ -45,12 +49,14 @@ function nextImageFallback(url: string): string | null {
 
 export function ProductCard({ product }: ProductCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const [imageSrc, setImageSrc] = useState(proxiedImageUrl(product.image_url));
+  const [imageSrc, setImageSrc] = useState(
+    proxiedImageUrl(product.image_url, product.source_domain),
+  );
   const hasDescription = product.description.trim().length > 0;
 
   useEffect(() => {
-    setImageSrc(proxiedImageUrl(product.image_url));
-  }, [product.image_url]);
+    setImageSrc(proxiedImageUrl(product.image_url, product.source_domain));
+  }, [product.image_url, product.source_domain]);
 
   return (
     <li className="rounded-input border border-rule bg-paper p-3 transition-colors hover:border-rule-2">
@@ -66,7 +72,7 @@ export function ProductCard({ product }: ProductCardProps) {
               const rawUrl = product.image_url;
               const fallback = nextImageFallback(rawUrl);
               if (fallback && fallback !== rawUrl) {
-                setImageSrc(proxiedImageUrl(fallback));
+                setImageSrc(proxiedImageUrl(fallback, product.source_domain));
                 return;
               }
               setImageSrc("");

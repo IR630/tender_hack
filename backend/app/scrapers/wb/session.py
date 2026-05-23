@@ -28,6 +28,16 @@ from app.scrapers.wb.proxy import (
 struct_logger = structlog.get_logger(component="wb_session")
 
 
+def _failure_priority(response: WBSearchResponse) -> tuple[int, int]:
+    if response.products:
+        return (0, 0)
+    if response.status_code in {429, 403, 498}:
+        return (3, response.status_code)
+    if response.error and "пустой каталог" in response.error:
+        return (1, response.status_code)
+    return (2, response.status_code or 0)
+
+
 WARMUP_HOME_URL = "https://www.wildberries.ru/"
 WARMUP_CATALOG_URL = "https://www.wildberries.ru/catalog/elektronika/noutbuki-pereferiya/noutbuki-ultrabuki"
 
@@ -355,7 +365,7 @@ class WBSession:
                     break
                 if response.error and (
                     best_failure is None
-                    or (best_failure.status_code == 0 and response.status_code != 0)
+                    or _failure_priority(response) > _failure_priority(best_failure)
                 ):
                     best_failure = response
 

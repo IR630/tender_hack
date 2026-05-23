@@ -51,7 +51,8 @@ class Settings(BaseSettings):
     ozon_browser_warmup_seconds: float = 8.0
     ozon_browser_max_retries: int = 1
     ozon_browser_retry_delay_seconds: float = 3.0
-    ozon_browser_headless: bool | None = None
+    # Headless Chromium is blocked by Ozon WAF on first request; keep False for demo/host API.
+    ozon_browser_headless: bool = False
     ozon_browser_max_results: int = 15
     ozon_two_stage_enabled: bool = True
     ozon_broad_search_max: int = 48

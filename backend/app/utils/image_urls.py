@@ -34,8 +34,11 @@ def normalize_marketplace_image_url(url: str | None) -> str:
     return cleaned
 
 
-def is_allowed_image_host(url: str) -> bool:
+def is_allowed_image_host(url: str, *, source_domain: str = "") -> bool:
     host = urlparse(url).netloc.lower()
     if host.startswith("www."):
         host = host[4:]
+    normalized_domain = source_domain.lower().removeprefix("www.")
+    if normalized_domain and (host == normalized_domain or host.endswith(f".{normalized_domain}")):
+        return True
     return any(host == suffix or host.endswith(f".{suffix}") for suffix in ALLOWED_IMAGE_HOST_SUFFIXES)
