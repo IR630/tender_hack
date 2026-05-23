@@ -41,7 +41,7 @@ BROWSER_HEADERS = {
     "x-userid": "0",
 }
 
-MAX_RESULTS = 30
+MAX_RESULTS = settings.wb_max_results
 _BASKET_MIN, _BASKET_MAX = 1, 50
 
 _HOST_HINT_RANGES: list[tuple[int, int]] = [

@@ -211,6 +211,8 @@ def _append_preview(
     url: str,
     image: str | None,
     max_results: int,
+    rating: float | None = None,
+    reviews_count: int | None = None,
 ) -> None:
     if len(products) >= max_results or price <= 0:
         return
@@ -229,6 +231,8 @@ def _append_preview(
             "image": image if _is_real_image(image) else None,
             "description": None,
             "characteristics": {},
+            "rating": rating,
+            "reviews_count": reviews_count,
         }
     )
 
@@ -329,6 +333,12 @@ def _item_from_json_obj(obj: dict[str, Any]) -> dict[str, Any] | None:
                 image = candidate
                 break
 
+    rating_raw = obj.get("rating") or obj.get("averageScore") or obj.get("avgRating")
+    rating = float(rating_raw) if isinstance(rating_raw, (int, float)) else None
+
+    reviews_raw = obj.get("reviewsCount") or obj.get("countReviews") or obj.get("reviewCount")
+    reviews_count = int(reviews_raw) if isinstance(reviews_raw, int) else None
+
     clean_title = _clean_title(str(title) if title else None)
     if not clean_title or price <= 0:
         return None
@@ -337,6 +347,8 @@ def _item_from_json_obj(obj: dict[str, Any]) -> dict[str, Any] | None:
         "price": price,
         "url": _normalize_product_url(str(link)),
         "image": image,
+        "rating": rating,
+        "reviews_count": reviews_count,
     }
 
 
@@ -539,6 +551,7 @@ def _extract_broad_from_html_cards(html: str, *, max_results: int) -> list[dict[
         title = _extract_title_from_card(card)
         price = _extract_price_from_card(card)
         image = _extract_image_url(card)
+        rating, reviews_count = _extract_rating_reviews_from_card(card)
         _append_preview(
             products,
             seen,
@@ -546,6 +559,8 @@ def _extract_broad_from_html_cards(html: str, *, max_results: int) -> list[dict[
             price=price,
             url=href,
             image=image,
+            rating=rating,
+            reviews_count=reviews_count,
             max_results=max_results,
         )
 
@@ -632,6 +647,8 @@ def _items_to_previews(items: list[dict[str, Any]], *, max_results: int) -> list
             price=int(item.get("price") or 0),
             url=str(item.get("url") or ""),
             image=item.get("image"),
+            rating=item.get("rating"),
+            reviews_count=item.get("reviews_count"),
             max_results=max_results,
         )
     return products
@@ -738,6 +755,23 @@ def _find_cards(tree: HTMLParser) -> list[Node]:
         if cards:
             return cards
     return []
+
+
+def _extract_rating_reviews_from_card(card: Node) -> tuple[float | None, int | None]:
+    text = card.text(strip=True)
+    rating = None
+    reviews_count = None
+    m = re.search(r'\b([1-5][,\.]\d)\b', text)
+    if m:
+        try:
+            rating = float(m.group(1).replace(",", "."))
+        except ValueError:
+            pass
+    m = re.search(r'([\d\s   ]+)\s*отзыв', text)
+    if m:
+        digits = re.sub(r"\D", "", m.group(1))
+        reviews_count = int(digits) if digits else None
+    return rating, reviews_count
 
 
 def _extract_title_from_card(card: Node) -> str | None:
