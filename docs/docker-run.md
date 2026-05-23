@@ -98,7 +98,7 @@ Ozon парсится через **nodriver + Chromium**. В Docker API рабо
 ./start_demo.sh
 ```
 
-Подробнее: [ozon-hybrid-demo.md](ozon-hybrid-demo.md)
+Подробнее: [categories/infrastructure.md](categories/infrastructure.md#hybrid-demo-ozon)
 
 ---
 

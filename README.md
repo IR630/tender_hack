@@ -47,13 +47,11 @@ cd frontend && pnpm install && pnpm dev
 
 ## Документация
 
+- [**Документация (маркетплейсы + категории)**](docs/README.md)
 - [Архитектура (набросок)](architecture.md)
 - [Условия хакатона](task.md)
 - [Contributing](docs/CONTRIBUTING.md)
 - [Ограничения хакатона](docs/ARCHITECTURE_CONSTRAINTS.md)
-- [WB scraper — реализация](docs/wb-scraper-implementation.md)
-- [Ozon scraper — реализация](docs/ozon-scraper-implementation.md)
-- [Ozon — гибридный демо-стенд](docs/ozon-hybrid-demo.md)
 - [Запуск через Docker](docs/docker-run.md)
 
 ## Стек
