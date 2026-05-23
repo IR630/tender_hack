@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     wb_proxy_race_rounds: int = 8
     # Default 30 preserves the prior hardcoded MAX_RESULTS. PR #9 on main used 5
     # for tighter throttling; raise via env if you need that.
-    wb_max_results: int = 30
+    wb_max_results: int = 20
     ym_cache_enabled: bool = True
     ym_search_max_pages: int = 3
     ozon_use_browser: bool = True
@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     ozon_browser_max_retries: int = 1
     ozon_browser_retry_delay_seconds: float = 3.0
     ozon_browser_headless: bool | None = None
-    ozon_browser_max_results: int = 30
+    ozon_browser_max_results: int = 20
     ozon_two_stage_enabled: bool = True
     ozon_broad_search_max: int = 48
     ozon_ml_top_k: int = 20
@@ -75,7 +75,7 @@ class Settings(BaseSettings):
     other_search_timeout_seconds: float = 45.0
     other_fetch_concurrency: int = 4
     other_cache_enabled: bool = False
-    other_max_results: int = 8
+    other_max_results: int = 20
     # Comma-separated: wildberries,yandex_market,other,ozon — для отладки: other
     search_enabled_sources: str = "wildberries,yandex_market,other,ozon"
 

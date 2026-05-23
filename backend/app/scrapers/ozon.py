@@ -55,7 +55,7 @@ class OzonScraper(BaseScraper):
         region = resolve_region(request.region)
         self.clear_error()
         try:
-            results = await self._public.search(request.query, region=region.id, limit=30)
+            results = await self._public.search(request.query, region=region.id, limit=20)
         except ScraperError as exc:
             self.set_error(f"{exc.error_type.value}: {exc.message}")
             return []

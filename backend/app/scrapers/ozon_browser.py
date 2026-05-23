@@ -242,6 +242,14 @@ async def navigate_and_get_html(
                 )
         except Exception:
             pass
+    if require_products and ok:
+        try:
+            for _ in range(4):
+                await tab.scroll_down(1200)
+                await tab.sleep(1.0)
+            html = await tab.get_content()
+        except Exception:
+            pass
     if ok:
         return html, None
     if _is_challenge(html or ""):
