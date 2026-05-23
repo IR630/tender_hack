@@ -1,4 +1,4 @@
-"""Two-stage Ozon pipeline: broad search → ML filter → deep enrichment."""
+"""Two-stage Ozon pipeline: broad search → ML filter → optional deep enrichment."""
 
 from __future__ import annotations
 
@@ -70,7 +70,7 @@ def _map_pipeline_error(error: str | None) -> tuple[list[dict[str, Any]], str | 
 
 
 class TwoStageOzonParser:
-    """Broad search (30+) → rubert top-5 → enrich in the same browser session."""
+    """Broad search (30+) → rubert top-5 → optional enrich in the same browser session."""
 
     async def search(
         self,
@@ -116,6 +116,12 @@ class TwoStageOzonParser:
             products = [_preview_to_product(p) for p in top_k]
 
             if not settings.ozon_enrich_enabled:
+                struct_logger.info(
+                    "ozon_enrich_skipped",
+                    query=query,
+                    count=len(products),
+                    reason="disabled",
+                )
                 return products, None
 
             for index, product in enumerate(products):
@@ -137,15 +143,20 @@ class TwoStageOzonParser:
                     wait_seconds=settings.ozon_enrich_wait_seconds,
                     require_product_detail=True,
                 )
+                if page_error == "waf" or (page_html and ozon_browser.is_challenge(page_html)):
+                    struct_logger.warning(
+                        "ozon_enrich_waf_stop",
+                        url=url,
+                        index=index + 1,
+                        message="Stopping enrich after captcha — returning search previews",
+                    )
+                    break
                 if page_error or not page_html:
                     struct_logger.warning(
                         "ozon_enrich_fetch_error",
                         url=url,
                         error=page_error or "empty_html",
                     )
-                    continue
-                if ozon_browser.is_challenge(page_html):
-                    struct_logger.warning("ozon_enrich_waf", url=url)
                     continue
 
                 detail = extract_product_enrichment(page_html)
@@ -171,8 +182,10 @@ class TwoStageOzonParser:
         return products, None, None
 
     async def enrich_product(self, preview: dict[str, Any]) -> dict[str, Any]:
-        """Standalone enrich — prefer search() pipeline for production."""
+        """Standalone enrich — disabled by default; use search() previews in production."""
         product = _preview_to_product(preview)
+        if not settings.ozon_enrich_enabled:
+            return product
         url = str(product.get("url") or "")
         if not url:
             return product

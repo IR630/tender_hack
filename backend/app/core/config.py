@@ -53,9 +53,10 @@ class Settings(BaseSettings):
     ozon_two_stage_enabled: bool = True
     ozon_broad_search_max: int = 36
     ozon_ml_top_k: int = 5
-    ozon_enrich_enabled: bool = True
+    # Product-page enrich triggers Ozon slide-captcha; search previews are enough by default.
+    ozon_enrich_enabled: bool = False
     ozon_enrich_concurrency: int = 1
-    ozon_enrich_delay_seconds: float = 5.0
+    ozon_enrich_delay_seconds: float = 12.0
     ozon_enrich_wait_seconds: float = 20.0
     ozon_enrich_timeout_seconds: float = 25.0
     ozon_pipeline_timeout_seconds: float = 180.0
