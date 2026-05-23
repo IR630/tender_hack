@@ -54,6 +54,38 @@ function formatRub(price: number | null): string {
   return `${Math.round(price / 100).toLocaleString("ru-RU")} ₽`;
 }
 
+interface PriceSummary {
+  total_found: number;
+  min_price: number | null;
+  median_price: number | null;
+  max_price: number | null;
+}
+
+// Client-side summary over whatever products have arrived so far — lets the
+// stats strip update live during loading instead of waiting for completion.
+function computeSummary(groups: SearchGroup[]): PriceSummary {
+  const prices = groups
+    .flatMap((group) => group.products.map((product) => product.price))
+    .filter((price): price is number => typeof price === "number" && price > 0)
+    .sort((a, b) => a - b);
+  const totalFound = groups.reduce(
+    (sum, group) => sum + Math.max(group.count, group.products.length),
+    0,
+  );
+  if (prices.length === 0) {
+    return { total_found: totalFound, min_price: null, median_price: null, max_price: null };
+  }
+  const mid = Math.floor(prices.length / 2);
+  const median =
+    prices.length % 2 === 1 ? prices[mid] : Math.round((prices[mid - 1] + prices[mid]) / 2);
+  return {
+    total_found: totalFound,
+    min_price: prices[0],
+    median_price: median,
+    max_price: prices[prices.length - 1],
+  };
+}
+
 export default function App() {
   const [query, setQuery] = useState("");
   const [region, setRegion] = useState(loadStoredRegion);
@@ -195,8 +227,11 @@ export default function App() {
   }
 
   const orderedGroups = result ? orderGroups(result.groups) : [];
-  const summary = result?.summary;
-  const hasSummary = Boolean(!loading && result && summary && summary.total_found > 0);
+  // during loading: compute from partial results; on completion: trust backend
+  const displaySummary: PriceSummary | null = loading
+    ? computeSummary(orderedGroups)
+    : (result?.summary ?? null);
+  const showSummary = Boolean(displaySummary && displaySummary.total_found > 0);
   const fixedGroups = buildFixedGroups(orderedGroups);
   const presentSources = new Set(orderedGroups.map((group) => group.source));
   const showGrid = searchStarted && gridRevealed;
@@ -269,33 +304,38 @@ export default function App() {
 
         {showGrid && (
           <div ref={resultsRef} className="mt-12 scroll-mt-24 space-y-8">
-            {hasSummary && summary && (
-              <section className="border-y border-rule py-5">
+            {showSummary && displaySummary && (
+              <section className="border-y border-rule py-5" aria-live="polite">
                 <dl className="flex flex-wrap items-end gap-x-10 gap-y-4">
                   <div>
                     <dt className="text-xs uppercase tracking-label text-muted">Найдено</dt>
                     <dd className="tnum mt-1 text-2xl font-medium text-ink">
-                      {summary.total_found.toLocaleString("ru-RU")}
+                      {displaySummary.total_found.toLocaleString("ru-RU")}
                     </dd>
                   </div>
                   <div>
                     <dt className="text-xs uppercase tracking-label text-muted">Минимум</dt>
                     <dd className="tnum mt-1 text-2xl font-medium text-ink">
-                      {formatRub(summary.min_price)}
+                      {formatRub(displaySummary.min_price)}
                     </dd>
                   </div>
                   <div>
                     <dt className="text-xs uppercase tracking-label text-muted">Медиана</dt>
                     <dd className="tnum mt-1 text-2xl font-medium text-ink">
-                      {formatRub(summary.median_price)}
+                      {formatRub(displaySummary.median_price)}
                     </dd>
                   </div>
                   <div>
                     <dt className="text-xs uppercase tracking-label text-muted">Максимум</dt>
                     <dd className="tnum mt-1 text-2xl font-medium text-ink">
-                      {formatRub(summary.max_price)}
+                      {formatRub(displaySummary.max_price)}
                     </dd>
                   </div>
+                  {loading && (
+                    <div className="self-center">
+                      <span className="text-xs text-muted">обновляется…</span>
+                    </div>
+                  )}
                 </dl>
               </section>
             )}
