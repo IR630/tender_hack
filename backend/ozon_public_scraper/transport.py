@@ -24,7 +24,10 @@ class HttpResult:
     url: str
 
 
-def _desktop_headers(*, accept: str = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8") -> dict[str, str]:
+def _desktop_headers(
+    *,
+    accept: str = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+) -> dict[str, str]:
     return {
         "User-Agent": DESKTOP_UA,
         "Accept": accept,

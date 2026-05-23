@@ -41,8 +41,7 @@ def _og_to_product(raw: RawOgData, *, url: str, source: str) -> ProductResult | 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=8), reraise=True)
 async def _fetch_page(url: str, attempt: int) -> tuple[int, str]:
-    accept_langs = ["ru-RU,ru;q=0.9", "ru,en;q=0.8", "en-US,en;q=0.5"]
-    lang = accept_langs[min(attempt - 1, len(accept_langs) - 1)]
+    _ = attempt
     result = await fetch_url(
         url,
         apply_ozon_limit=True,
@@ -102,7 +101,11 @@ async def fetch_product_og(
             if attempt < 3:
                 await asyncio.sleep(5)
                 continue
-            await cache_set(blocked_url_key(numeric_id), {"blocked": True}, settings.ozon_blocked_url_ttl)
+            await cache_set(
+                blocked_url_key(numeric_id),
+                {"blocked": True},
+                settings.ozon_blocked_url_ttl,
+            )
             return None
 
         if status >= 500:
@@ -128,7 +131,11 @@ async def fetch_product_og(
             },
         )
 
-        ttl = settings.ozon_og_incomplete_cache_ttl if product.incomplete else settings.ozon_og_cache_ttl
+        ttl = (
+            settings.ozon_og_incomplete_cache_ttl
+            if product.incomplete
+            else settings.ozon_og_cache_ttl
+        )
         await cache_set(cache_key, product.model_dump(mode="json"), ttl)
         return product
 

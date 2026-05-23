@@ -399,7 +399,11 @@ def _load_script_json(html: str, pattern: str) -> Any | None:
 def _load_nuxt_state(html: str) -> Any | None:
     match = re.search(r"window\.__NUXT__\.state\s*=\s*'(.+)'\s*;\s*window\.__NUXT__", html, re.S)
     if not match:
-        match = re.search(r'window\.__NUXT__\.state\s*=\s*"(.+)"\s*;\s*window\.__NUXT__', html, re.S)
+        match = re.search(
+            r'window\.__NUXT__\.state\s*=\s*"(.+)"\s*;\s*window\.__NUXT__',
+            html,
+            re.S,
+        )
     if not match:
         return None
     raw = match.group(1).replace("\\\\", "\\")
@@ -459,7 +463,11 @@ def _extract_from_json_ld(html: str, *, max_results: int) -> list[dict[str, str 
     return products
 
 
-def _extract_from_embedded_items(html: str, *, max_results: int) -> list[dict[str, str | int | None]]:
+def _extract_from_embedded_items(
+    html: str,
+    *,
+    max_results: int,
+) -> list[dict[str, str | int | None]]:
     if "searchResultsV2" not in html and "/product/" not in html:
         return []
     products: list[dict[str, str | int | None]] = []
@@ -473,7 +481,10 @@ def _extract_from_embedded_items(html: str, *, max_results: int) -> list[dict[st
         title = match.group("title").encode("utf-8").decode("unicode_escape")
         price_match = re.search(r'"(?:finalPrice|price)"\s*:\s*(?P<price>\d+)', match.group(0))
         price = int(price_match.group("price")) * 100 if price_match else 0
-        image_match = re.search(r'"(?:coverImage|image)"\s*:\s*"(?P<image>https?://[^"]+)"', match.group(0))
+        image_match = re.search(
+            r'"(?:coverImage|image)"\s*:\s*"(?P<image>https?://[^"]+)"',
+            match.group(0),
+        )
         image = image_match.group("image") if image_match else None
         _append_product(
             products,
@@ -654,7 +665,13 @@ def _extract_characteristics_from_json(node: Any) -> dict[str, str]:
             if isinstance(name, str) and value is not None and str(value).strip():
                 if name.lower() not in {"description", "title"}:
                     result[name.strip()] = str(value).strip()
-            for key in ("characteristics", "attributes", "specs", "properties", "shortCharacteristics"):
+            for key in (
+                "characteristics",
+                "attributes",
+                "specs",
+                "properties",
+                "shortCharacteristics",
+            ):
                 block = obj.get(key)
                 if isinstance(block, list):
                     for item in block:

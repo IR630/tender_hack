@@ -1,4 +1,5 @@
 import pytest
+from selectolax.parser import HTMLParser
 
 from app.core.models import Product, SearchRequest
 from app.scrapers.yandex_market import (
@@ -13,7 +14,6 @@ from app.scrapers.yandex_market import (
     _parse_search_html,
     _parse_snippet_title,
 )
-from selectolax.parser import HTMLParser
 
 SAMPLE_HTML = """
 <html><body>

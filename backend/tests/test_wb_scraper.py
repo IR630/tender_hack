@@ -171,7 +171,8 @@ async def test_circuit_breaker_blocks_after_trip(monkeypatch):
     products = await wb.scraper.search(SearchRequest(query="шины"))
     assert products == []
     assert wb.scraper.last_error is not None
-    assert "circuit" in wb.scraper.last_error.lower() or "недоступен" in wb.scraper.last_error.lower()
+    err = wb.scraper.last_error.lower()
+    assert "circuit" in err or "недоступен" in err
 
 
 def test_price_kopecks_variants():

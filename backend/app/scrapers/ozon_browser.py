@@ -176,7 +176,7 @@ def waf_block_result() -> tuple[list[dict[str, Any]], str, str]:
     return _waf_block_result()
 
 
-async def run_browser_pipeline(
+async def run_browser_pipeline[T](
     label: str,
     handler: Callable[[uc.Browser], Awaitable[tuple[T, str | None]]],
     *,
@@ -222,7 +222,7 @@ async def run_browser_pipeline(
                     await asyncio.sleep(settings.ozon_browser_retry_delay_seconds)
                     continue
                 return result, error
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 struct_logger.warning(
                     "ozon_browser_pipeline_timeout",
                     query=label,
@@ -291,7 +291,11 @@ async def _fetch_url_uncached(
         require_product_detail=require_product_detail,
     )
     if error == "timeout":
-        struct_logger.warning("ozon_fail_fast_timeout", query=label, timeout_seconds=timeout_seconds)
+        struct_logger.warning(
+            "ozon_fail_fast_timeout",
+            query=label,
+            timeout_seconds=timeout_seconds,
+        )
     if error == "waf":
         struct_logger.warning("ozon_fail_fast_waf", query=label, phase="fetch")
     return html, error

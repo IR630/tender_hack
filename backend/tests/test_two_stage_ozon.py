@@ -12,7 +12,9 @@ async def test_two_stage_pipeline_search() -> None:
     search_html = """
     <div data-widget="tileGridDesktop">
       <div class="tile-root">
-        <a href="/product/printer-hp-1/"><span class="tsBody500Medium">Принтер HP LaserJet</span></a>
+        <a href="/product/printer-hp-1/">
+          <span class="tsBody500Medium">Принтер HP LaserJet</span>
+        </a>
         <img srcset="https://ir.ozone.ru/s3/multimedia-1-q/wc1000/1.jpg 2x">
         <span>12 481 ₽</span>
       </div>
@@ -25,7 +27,8 @@ async def test_two_stage_pipeline_search() -> None:
     """
     product_html = """
     <script type="application/ld+json">
-    {"@type":"Product","description":"Лазерный принтер для офиса.","additionalProperty":[{"name":"Бренд","value":"HP"}]}
+    {"@type":"Product","description":"Лазерный принтер для офиса.",
+     "additionalProperty":[{"name":"Бренд","value":"HP"}]}
     </script>
     """
 
@@ -42,7 +45,10 @@ async def test_two_stage_pipeline_search() -> None:
     )
 
     with (
-        patch("app.scrapers.two_stage_ozon.ozon_browser.run_browser_pipeline", side_effect=fake_pipeline),
+        patch(
+            "app.scrapers.two_stage_ozon.ozon_browser.run_browser_pipeline",
+            side_effect=fake_pipeline,
+        ),
         patch("app.scrapers.two_stage_ozon.ozon_browser.navigate_and_get_html", navigate_mock),
         patch(
             "app.scrapers.two_stage_ozon.filter_top_k_by_similarity",

@@ -61,7 +61,10 @@ class OzonPublicSettings(BaseSettings):
     ozon_request_interval_ms: int = Field(default=500, validation_alias="OZON_REQUEST_INTERVAL_MS")
     ozon_searxng_cache_ttl: int = Field(default=1800, validation_alias="OZON_SEARXNG_CACHE_TTL")
     ozon_og_cache_ttl: int = Field(default=3600, validation_alias="OZON_OG_CACHE_TTL")
-    ozon_og_incomplete_cache_ttl: int = Field(default=300, validation_alias="OZON_OG_INCOMPLETE_CACHE_TTL")
+    ozon_og_incomplete_cache_ttl: int = Field(
+        default=300,
+        validation_alias="OZON_OG_INCOMPLETE_CACHE_TTL",
+    )
     ozon_blocked_url_ttl: int = Field(default=3600, validation_alias="OZON_BLOCKED_URL_TTL")
     ozon_request_timeout: float = Field(default=15.0, validation_alias="OZON_REQUEST_TIMEOUT")
     ozon_enable_browser_fallback: bool = Field(

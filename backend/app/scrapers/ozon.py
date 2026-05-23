@@ -3,8 +3,8 @@ from __future__ import annotations
 from app.core.config import settings
 from app.core.models import Product, SearchRequest
 from app.core.regions import resolve_region
-from app.scrapers.base import BaseScraper
 from app.scrapers import ozon_browser
+from app.scrapers.base import BaseScraper
 from ozon_public_scraper import OzonPublicScraper, ScraperError
 
 

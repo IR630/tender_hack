@@ -237,7 +237,11 @@ def _fetch_search_sync(params: dict[str, object]) -> _SearchResponse:
         products = (payload.get("products") or [])[:MAX_RESULTS]
         _log_search_diagnosis(pow_header, products, query)
         if products:
-            return _SearchResponse(products, status_code=response.status_code, pow_header=pow_header)
+            return _SearchResponse(
+                products,
+                status_code=response.status_code,
+                pow_header=pow_header,
+            )
 
         return _SearchResponse(
             [],
@@ -360,7 +364,9 @@ class WildberriesScraper(BaseScraper):
         await _store_cached_products(region.id, query, products)
 
         usable = sum(
-            1 for raw in attempt.products if raw.get("id") and raw.get("name") and _price_kopecks(raw) > 0
+            1
+            for raw in attempt.products
+            if raw.get("id") and raw.get("name") and _price_kopecks(raw) > 0
         )
         logger.info(
             "WB scraper funnel for %r: %d raw -> %d usable -> %d returned (1 HTTP request)",

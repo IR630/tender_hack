@@ -4,7 +4,12 @@ import asyncio
 import time
 import uuid
 
-from ozon_public_scraper.logging_config import bind_correlation, clear_correlation, get_logger, setup_logging
+from ozon_public_scraper.logging_config import (
+    bind_correlation,
+    clear_correlation,
+    get_logger,
+    setup_logging,
+)
 from ozon_public_scraper.models import ProductResult, ScraperError, ScraperErrorType, SearchMetrics
 from ozon_public_scraper.pipelines.og_fetcher import fetch_product_og
 from ozon_public_scraper.pipelines.searxng import search_ozon_urls
@@ -18,7 +23,12 @@ class OzonPublicScraper:
         setup_logging()
         self.region = region
 
-    async def search(self, query: str, region: str | None = None, limit: int = 10) -> list[ProductResult]:
+    async def search(
+        self,
+        query: str,
+        region: str | None = None,
+        limit: int = 10,
+    ) -> list[ProductResult]:
         region = region or self.region
         correlation_id = str(uuid.uuid4())
         bind_correlation(correlation_id)

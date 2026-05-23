@@ -28,7 +28,9 @@ def test_extract_broad_search_ignores_recommendation_widget() -> None:
     html = """
     <div data-widget="tileGridDesktop">
       <div class="tile-root">
-        <a href="/product/main-grid-item-1/"><span class="tsBody500Medium">Основной товар HP</span></a>
+        <a href="/product/main-grid-item-1/">
+          <span class="tsBody500Medium">Основной товар HP</span>
+        </a>
         <img srcset="https://ir.ozone.ru/s3/multimedia-1-q/wc1000/111.jpg 2x">
         <span>5 062 ₽</span>
       </div>
@@ -48,7 +50,8 @@ def test_extract_broad_search_ignores_recommendation_widget() -> None:
 def test_extract_product_enrichment_from_og_description() -> None:
     html = """
     <head>
-      <meta property="og:description" content="Полное описание смартфона Apple iPhone 15 для офиса и дома.">
+      <meta property="og:description"
+            content="Полное описание смартфона Apple iPhone 15 для офиса и дома.">
     </head>
     <div data-widget="webCharacteristics">
       <tr><td>Бренд</td><td>Apple</td></tr>

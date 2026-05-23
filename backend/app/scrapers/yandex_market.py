@@ -625,7 +625,9 @@ class YandexMarketScraper(BaseScraper):
                 await _store_cached_products(region.id, query, products)
                 return products
             if not self.last_error:
-                self.set_error("Playwright fallback не вернул товаров (возможна капча или нет Chromium)")
+                self.set_error(
+                    "Playwright fallback не вернул товаров (возможна капча или нет Chromium)"
+                )
             return []
         except Exception as exc:
             self.set_error(f"Playwright: {exc}")

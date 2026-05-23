@@ -1,7 +1,8 @@
 import asyncio
 import logging
 import time
-from typing import Any, Coroutine
+from collections.abc import Coroutine
+from typing import Any
 
 from app.core.models import (
     Product,
@@ -124,7 +125,11 @@ async def run_search(request: SearchRequest) -> SearchResponse:
 
     await asyncio.gather(
         _run_one("wildberries", wb.scraper, wb.scraper.search(search_request)),
-        _run_one("yandex_market", yandex_market.scraper, yandex_market.scraper.search(search_request)),
+        _run_one(
+            "yandex_market",
+            yandex_market.scraper,
+            yandex_market.scraper.search(search_request),
+        ),
         _run_one("other", None, search_other_sources(search_request)),
     )
     await _run_one("ozon", ozon.scraper, ozon.scraper.search(search_request))
@@ -150,7 +155,11 @@ async def run_search_task(task_id: str, request: SearchRequest) -> None:
             groups_by_source[source] = _build_group(source, products, error, status)
             partial = [groups_by_source.get(s) for s in SOURCE_ORDER if s in groups_by_source]
             partial = [g for g in partial if g is not None]
-            await search_task_store.update_progress(task_id, message=f"Готово: {SOURCE_DISPLAY_NAMES[source]}", groups=partial)
+            await search_task_store.update_progress(
+                task_id,
+                message=f"Готово: {SOURCE_DISPLAY_NAMES[source]}",
+                groups=partial,
+            )
 
         await asyncio.gather(
             _run_and_publish(

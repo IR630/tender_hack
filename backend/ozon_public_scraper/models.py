@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field, HttpUrl
 
 
-class ScraperErrorType(str, Enum):
+class ScraperErrorType(StrEnum):
     NETWORK = "network"
     TIMEOUT = "timeout"
     INDEX_EMPTY = "index_empty"
