@@ -51,8 +51,8 @@ class Settings(BaseSettings):
     ozon_browser_headless: bool | None = None
     ozon_browser_max_results: int = 30
     ozon_two_stage_enabled: bool = True
-    ozon_broad_search_max: int = 36
-    ozon_ml_top_k: int = 5
+    ozon_broad_search_max: int = 48
+    ozon_ml_top_k: int = 20
     # Product-page enrich can trigger Ozon slide-captcha; search previews carry descriptions by default.
     ozon_enrich_enabled: bool = False
     ozon_enrich_max_products: int = 2
