@@ -32,12 +32,23 @@ Frontend: http://localhost:5173
 Backend API: http://localhost:8000  
 Health check: http://localhost:8000/health
 
-### Запуск через Docker
+### Запуск полного стенда (рекомендуется)
+
+```bash
+cp .env.example .env
+./start_demo.sh
+```
+
+Docker поднимает frontend и инфра; API — на хосте через `uv`. Подробно: [run.md](run.md).
+
+### Запуск через Docker (весь стек в контейнерах)
 
 ```bash
 cp .env.example .env
 docker compose -f docker/docker-compose.yml up --build
 ```
+
+Ozon browser в этом режиме часто блокируется — см. [docker-run.md](docker-run.md) или `./docker/up.sh`.
 
 - Frontend: http://localhost:5173
 - API: http://localhost:8000

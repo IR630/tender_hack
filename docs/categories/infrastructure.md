@@ -58,13 +58,18 @@ Volumes: `redis_data`, `meili_data`, `ozon_disk_cache`.
 
 ---
 
-## Hybrid demo (Ozon)
+## Запуск (единая команда)
+
+**Документ:** [../run.md](../run.md)
 
 Ozon с nodriver требует реальный Chromium и графическую сессию. В Docker (Xvfb) WAF блокирует запросы. Решение — **гибрид**: инфраструктура в Docker, API на хосте.
 
 ```bash
+cp .env.example .env
 ./start_demo.sh
 ```
+
+Требования на хосте: Docker, [uv](https://docs.astral.sh/uv/). Node/pnpm для демо не нужны — frontend в Docker.
 
 Скрипт:
 

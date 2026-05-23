@@ -1,12 +1,10 @@
 # Маркетплейсы
 
-Один файл — один источник. Подробно: метод обхода, пайплайн, парсинг, кэш, конфиг, библиотеки.
+| Маркетплейс | Обзор (просто) | Технически | Код |
+|-------------|----------------|------------|-----|
+| Wildberries | [wildberries-obzor.md](wildberries-obzor.md) | [wildberries.md](wildberries.md) | `scrapers/wb.py` |
+| Ozon | [ozon-obzor.md](ozon-obzor.md) | [ozon.md](ozon.md) | `scrapers/ozon*.py` |
+| Яндекс Маркет | [yandex-market-obzor.md](yandex-market-obzor.md) | [yandex-market.md](yandex-market.md) | `scrapers/yandex_market.py` |
+| Other | [other-obzor.md](other-obzor.md) | [other.md](other.md) | `sources/other/` |
 
-| Маркетплейс | Файл | Код |
-|-------------|------|-----|
-| Wildberries | [wildberries.md](wildberries.md) | `backend/app/scrapers/wb.py` |
-| Ozon | [ozon.md](ozon.md) | `backend/app/scrapers/ozon*.py`, `ozon_public_scraper/` |
-| Яндекс Маркет | [yandex-market.md](yandex-market.md) | `backend/app/scrapers/yandex_market.py` |
-| Другие источники | [other.md](other.md) | `backend/app/sources/other/` |
-
-Категории (API, пайплайн, кэш…): [../categories/README.md](../categories/README.md)
+[Все обзоры →](../obzor/README.md) · [Категории →](../categories/README.md)

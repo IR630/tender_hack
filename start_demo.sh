@@ -30,8 +30,15 @@ echo "=== Tender Hack — гибридный демо-стенд ==="
 echo "[1/2] Docker: frontend, Redis, SearXNG, MeiliSearch…"
 docker compose -f "${COMPOSE_FILE}" up -d --build
 
-echo "[2/2] Host API: uvicorn на http://127.0.0.1:8000"
+echo "[2/2] Host API: uv sync + uvicorn на http://127.0.0.1:8000"
 cd "${ROOT}/backend"
+
+if ! command -v uv >/dev/null 2>&1; then
+  echo "ERROR: uv не найден — https://docs.astral.sh/uv/getting-started/installation/"
+  exit 1
+fi
+
+uv sync
 
 export REDIS_URL="${REDIS_URL:-redis://127.0.0.1:6379/0}"
 export SEARXNG_URL="${SEARXNG_URL:-http://127.0.0.1:8080}"

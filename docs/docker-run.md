@@ -1,5 +1,9 @@
 # Запуск проекта через Docker
 
+> **Рекомендуемый способ для команды:** [run.md](run.md) — `./start_demo.sh` (гибрид: Docker + API на хосте, Ozon работает).
+>
+> Эта страница — когда нужен **весь стек в контейнерах** (CI, сервер, эксперименты).
+
 ## Требования
 
 - Docker Engine 24+
@@ -10,12 +14,25 @@
 
 ## Быстрый старт (весь стек в Docker)
 
+**Linux с графической сессией (рекомендуется для Ozon):**
+
 ```bash
 git clone https://github.com/IR630/tender_hack.git
 cd tender_hack
+git checkout feature/ozon
 cp .env.example .env
-docker compose -f docker/docker-compose.yml up --build
+./docker/up.sh
 ```
+
+Скрипт `./docker/up.sh` пробрасывает **X11 с хоста** в контейнер API — Ozon работает так же, как в `./start_demo.sh`.
+
+**Без X11 (сервер / CI):**
+
+```bash
+DISPLAY=:99 docker compose -f docker/docker-compose.yml up --build
+```
+
+Ozon может блокироваться WAF в чистом Xvfb-режиме. WB и Яндекс Маркет работают.
 
 Первый запуск может занять 5–15 минут: сборка frontend, скачивание образов, загрузка ML-модели при первом поиске Ozon.
 
@@ -86,19 +103,24 @@ OZON_TWO_STAGE_ENABLED=true
 
 ---
 
-## Ozon: ограничение Docker-режима
+## Ozon в Docker
 
-Ozon парсится через **nodriver + Chromium**. В Docker API работает с **Xvfb** (`DISPLAY=:99`).
+Ozon требует **настоящий Chromium с DISPLAY**, а не изолированный Xvfb.
 
-На практике Ozon часто блокирует такой headless-режим (WAF / капча). **WB и Яндекс Маркет в Docker работают нормально.**
+| Режим | Ozon | Команда |
+|-------|------|---------|
+| **X11 с хоста** | ✅ | `./docker/up.sh` |
+| Xvfb внутри контейнера (`:99`) | ❌ WAF | `DISPLAY=:99 docker compose …` |
+| Гибрид (API на хосте) | ✅ | `./start_demo.sh` |
 
-Если нужен рабочий Ozon на демо — используйте **гибридный режим**:
+Перед `./docker/up.sh` на Linux может понадобиться:
 
 ```bash
-./start_demo.sh
+xhost +local:docker
+export DISPLAY=:0
 ```
 
-Подробнее: [categories/infrastructure.md](categories/infrastructure.md#hybrid-demo-ozon)
+Compose монтирует `/tmp/.X11-unix` и передаёт `DISPLAY` из окружения.
 
 ---
 
@@ -123,10 +145,10 @@ docker compose -f docker/docker-compose.yml logs api --tail 100
 
 ### Ozon — «сайт блокирует»
 
-Ожидаемо в full-Docker. Варианты:
-
-1. Гибридный стенд `./start_demo.sh` (API на хосте с `DISPLAY=:0`)
-2. Отключить браузерный Ozon: `OZON_USE_BROWSER=false` (fallback на public scraper через SearXNG — менее полные данные)
+1. Запускайте через `./docker/up.sh` (X11 с хоста), не через чистый Xvfb
+2. Проверьте: `echo $DISPLAY` → `:0` или `:1`
+3. `xhost +local:docker`
+4. Fallback: `./start_demo.sh` (гибрид)
 
 ### Пересборка после изменений кода
 

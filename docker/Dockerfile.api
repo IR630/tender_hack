@@ -19,6 +19,9 @@ RUN apt-get update \
         chromium \
         xvfb \
         procps \
+        dbus-x11 \
+        fonts-liberation \
+        fonts-noto-color-emoji \
     && rm -rf /var/lib/apt/lists/*
 
 # System chromium is installed for optional manual debugging; nodriver uses its bundled browser.

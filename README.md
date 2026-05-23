@@ -8,15 +8,17 @@
 git clone https://github.com/IR630/tender_hack.git
 cd tender_hack
 cp .env.example .env
-docker compose -f docker/docker-compose.yml up --build
+./start_demo.sh
 ```
 
-Подробная инструкция: [docs/docker-run.md](docs/docker-run.md)
+**Нужен Docker?** Да, для frontend и инфра (Redis, SearXNG, MeiliSearch). API запускается **на хосте** через [uv](https://docs.astral.sh/uv/) — так Ozon browser работает на обычном Linux с экраном.
 
-- **Frontend:** http://localhost:5173
-- **API:** http://localhost:8000
-- **API docs:** http://localhost:8000/docs
-- **SearXNG:** http://localhost:8080
+Подробная инструкция: [docs/run.md](docs/run.md) · Docker-only: [docs/docker-run.md](docs/docker-run.md)
+
+- **Frontend:** http://127.0.0.1:5173
+- **API:** http://127.0.0.1:8000
+- **API docs:** http://127.0.0.1:8000/docs
+- **SearXNG:** http://127.0.0.1:8080
 
 ## Локальная разработка
 
@@ -47,12 +49,14 @@ cd frontend && pnpm install && pnpm dev
 
 ## Документация
 
-- [**Документация (маркетплейсы + категории)**](docs/README.md)
+- [**Документация**](docs/README.md) — технические шпаргалки
+- [**Обзоры для новичков**](docs/obzor/README.md) — простым языком
 - [Архитектура (набросок)](architecture.md)
 - [Условия хакатона](task.md)
 - [Contributing](docs/CONTRIBUTING.md)
 - [Ограничения хакатона](docs/ARCHITECTURE_CONSTRAINTS.md)
-- [Запуск через Docker](docs/docker-run.md)
+- [Запуск проекта](docs/run.md)
+- [Docker-only](docs/docker-run.md)
 
 ## Стек
 

@@ -5,8 +5,7 @@ services:
       dockerfile: docker/Dockerfile.api
       network: host
     network_mode: host
-    # Host networking avoids broken Docker port publishing with some VPN/tun setups
-    # (TCP connects but responses never return through the userland proxy).
+    shm_size: "2gb"
     dns:
       - 1.1.1.1
       - 8.8.8.8
@@ -16,13 +15,25 @@ services:
       MEILI_URL: http://127.0.0.1:7700
       MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-dev-master-key}
       OZON_USE_BROWSER: ${OZON_USE_BROWSER:-true}
+      OZON_TWO_STAGE_ENABLED: ${OZON_TWO_STAGE_ENABLED:-true}
+      OZON_BROAD_SEARCH_MAX: ${OZON_BROAD_SEARCH_MAX:-36}
+      OZON_ML_TOP_K: ${OZON_ML_TOP_K:-5}
+      OZON_ENRICH_ENABLED: ${OZON_ENRICH_ENABLED:-true}
+      OZON_ENRICH_DELAY_SECONDS: ${OZON_ENRICH_DELAY_SECONDS:-5}
+      OZON_ENRICH_WAIT_SECONDS: ${OZON_ENRICH_WAIT_SECONDS:-15}
+      OZON_PIPELINE_TIMEOUT_SECONDS: ${OZON_PIPELINE_TIMEOUT_SECONDS:-180}
       OZON_BROWSER_CACHE_ENABLED: ${OZON_BROWSER_CACHE_ENABLED:-false}
-      OZON_BROWSER_WAIT_SECONDS: ${OZON_BROWSER_WAIT_SECONDS:-35}
-      OZON_BROWSER_MAX_RETRIES: ${OZON_BROWSER_MAX_RETRIES:-2}
+      OZON_BROWSER_WAIT_SECONDS: ${OZON_BROWSER_WAIT_SECONDS:-30}
+      OZON_BROWSER_TOTAL_TIMEOUT_SECONDS: ${OZON_BROWSER_TOTAL_TIMEOUT_SECONDS:-45}
+      OZON_BROWSER_WARMUP_HOME: ${OZON_BROWSER_WARMUP_HOME:-true}
+      OZON_BROWSER_MAX_RETRIES: ${OZON_BROWSER_MAX_RETRIES:-1}
+      OZON_BROWSER_HEADLESS: ${OZON_BROWSER_HEADLESS:-false}
       OZON_DISK_CACHE_DIR: /app/data/ozon_disk_cache
-      DISPLAY: ":99"
+      DISPLAY: ${DISPLAY:-:99}
+      XAUTHORITY: ${XAUTHORITY:-}
     volumes:
       - ozon_disk_cache:/app/data/ozon_disk_cache
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
     depends_on:
       - redis
       - searxng

@@ -72,10 +72,9 @@ def _browser_headless() -> bool:
 
 
 def _browser_args() -> list[str]:
+    # Keep custom flags minimal — Chrome shows a warning bar for unsupported flags like
+    # --disable-blink-features=AutomationControlled and Ozon antibot treats them as automation.
     return [
-        "--no-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-blink-features=AutomationControlled",
         "--window-size=1920,1080",
     ]
 
@@ -89,7 +88,7 @@ async def _start_browser() -> uc.Browser:
         "headless": _browser_headless(),
         "lang": "ru-RU",
         "browser_args": _browser_args(),
-        "sandbox": False,
+        "sandbox": True,
     }
     chrome_bin = _browser_executable_path()
     if chrome_bin:
@@ -199,6 +198,8 @@ async def run_browser_pipeline(
                 attempt=attempt,
                 max_attempts=max_attempts,
                 timeout_seconds=timeout,
+                display=os.getenv("DISPLAY"),
+                headless=_browser_headless(),
             )
             try:
                 browser = await _start_browser()
