@@ -119,8 +119,8 @@ class OtherPublicSettings(BaseSettings):
     other_title_similarity_threshold: float = Field(
         default=0.40, validation_alias="OTHER_TITLE_SIMILARITY_THRESHOLD"
     )
-    other_max_results: int = Field(default=15, validation_alias="OTHER_MAX_RESULTS")
-    other_rank_pool_size: int = Field(default=32, validation_alias="OTHER_RANK_POOL_SIZE")
+    other_max_results: int = Field(default=8, validation_alias="OTHER_MAX_RESULTS")
+    other_rank_pool_size: int = Field(default=16, validation_alias="OTHER_RANK_POOL_SIZE")
     other_listing_products_per_page: int = Field(
         default=8, validation_alias="OTHER_LISTING_PRODUCTS_PER_PAGE"
     )
