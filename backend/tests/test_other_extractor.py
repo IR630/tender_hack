@@ -2,6 +2,7 @@ from other_public_scraper.pipelines.page_extractor import (
     extract_product_from_html,
     extract_products_from_listing_html,
     is_category_listing,
+    is_product_page_url,
 )
 
 JSON_LD_HTML = """
@@ -71,4 +72,15 @@ def test_is_category_listing():
     assert not is_category_listing(
         "Nokian Hakka Blue 2 205/55 R16",
         "https://koleso.ru/catalog/tyres/leto/nokian/12345/",
+    )
+    assert not is_category_listing(
+        "AIR OPTIX PLUS HYDRAGLYDE (3 линзы)",
+        "https://ochkarik.ru/catalog/kontaktnye-linzy/air-optix-plus-hydraglyde-3-linzy/382335/",
+    )
+    assert is_product_page_url(
+        "https://ochkarik.ru/catalog/kontaktnye-linzy/air-optix-plus-hydraglyde-3-linzy/382335/"
+    )
+    assert not is_category_listing(
+        "Кроссовки Jomoto купить по цене 1199 ₽ в интернет-магазине",
+        "https://www.detmir.ru/product/index/id/6745611/",
     )

@@ -7,7 +7,6 @@ import logging
 import re
 
 from other_public_scraper.config import settings
-from other_public_scraper.debug_log import agent_log
 from other_public_scraper.diagnostics import active_diagnostics
 from other_public_scraper.models import UrlCandidate
 from other_public_scraper.pipelines.bing_search import search_bing_urls
@@ -170,15 +169,4 @@ async def search_live_urls_expanded(
         merged = _merge_live(merged, supplemental)
     merged = filter_and_sort_candidates(merged)
     merged = [item for item in merged if url_quality_score(item.url) >= 0][:limit]
-    agent_log(
-        hypothesis_id="H1",
-        location="web_search.py:search_live_urls_expanded",
-        message="discovery_expanded",
-        data={
-            "query": query,
-            "variants": variants[:4],
-            "merged_count": len(merged),
-            "sample_urls": [item.url[:90] for item in merged[:5]],
-        },
-    )
     return merged

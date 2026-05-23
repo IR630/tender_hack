@@ -29,7 +29,7 @@ def _token_overlap_score(query: str, text: str) -> float:
         if token in haystack:
             hits += 1
             continue
-        stem = token[: max(4, len(token) - 1)]
+        stem = token[: max(3, len(token) - 1)]
         if len(stem) >= 4 and stem in haystack:
             hits += 1
     return hits / len(tokens)

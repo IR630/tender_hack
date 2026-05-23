@@ -55,6 +55,13 @@ GARBAGE_KEYWORDS = (
 QUERY_STOP_WORDS = frozenset(
     "и в на для по с из купить цена недорого новый новая новое the a an".split()
 )
+QUERY_TOKEN_ALIASES: dict[str, tuple[str, ...]] = {
+    "телефон": ("телефон", "смартфон", "smartphone", "phone", "iphone", "айфон", "mobile"),
+    "смартфон": ("смартфон", "телефон", "smartphone", "phone", "iphone", "айфон"),
+    "ноутбук": ("ноутбук", "laptop", "notebook", "macbook"),
+    "шины": ("шины", "шина", "tyre", "tire", "резин"),
+    "очки": ("очки", "очков", "оправ", "ray-ban", "ray ban"),
+}
 
 
 @dataclass
@@ -330,6 +337,33 @@ def _query_tokens(query: str) -> list[str]:
     return tokens
 
 
+def _expanded_query_tokens(query: str) -> list[str]:
+    expanded: list[str] = []
+    seen: set[str] = set()
+    for token in _query_tokens(query):
+        aliases = QUERY_TOKEN_ALIASES.get(token, (token,))
+        for alias in (*aliases, token):
+            if alias not in seen:
+                seen.add(alias)
+                expanded.append(alias)
+    return expanded
+
+
+def _title_matches_query(title_lower: str, query: str) -> bool:
+    tokens = _query_tokens(query)
+    if not tokens:
+        return True
+    expanded = _expanded_query_tokens(query)
+    if any(alias in title_lower for alias in expanded):
+        return True
+    for token in tokens:
+        if token in title_lower:
+            return True
+        if len(token) >= 3 and token[:3] in title_lower:
+            return True
+    return False
+
+
 def _is_similar_title(left: str, right: str) -> bool:
     left_norm = _normalize_title(left)
     right_norm = _normalize_title(right)
@@ -342,9 +376,8 @@ def _is_garbage_listing(title: str, query: str) -> bool:
     title_lower = title.lower().replace("ё", "е")
     query_tokens = _query_tokens(query)
 
-    if query_tokens:
-        if not any(token in title_lower for token in query_tokens):
-            return True
+    if query_tokens and not _title_matches_query(title_lower, query):
+        return True
 
     if any(keyword in title_lower for keyword in GARBAGE_KEYWORDS):
         accessory_query = any(

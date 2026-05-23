@@ -50,10 +50,27 @@ def _domain(url: str) -> str:
     return host[4:] if host.startswith("www.") else host
 
 
+def _path_segments(url: str) -> list[str]:
+    return [part for part in urlparse(url).path.split("/") if part]
+
+
+def is_product_page_url(url: str) -> bool:
+    segments = _path_segments(url)
+    if not segments:
+        return False
+    if segments[-1].isdigit():
+        return True
+    if "product" in segments:
+        return True
+    return False
+
+
 def is_category_listing(title: str, url: str) -> bool:
+    if is_product_page_url(url):
+        return False
     if _CATEGORY_TITLE_RE.search(title):
         return True
-    segments = [part for part in urlparse(url).path.split("/") if part]
+    segments = _path_segments(url)
     if "catalog" in segments and len(segments) <= 4:
         return True
     if segments and segments[-1] in {"iphone-15", "iphone-16", "smartfony"}:

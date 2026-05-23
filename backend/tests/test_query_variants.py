@@ -12,3 +12,10 @@ def test_cyrillic_iphone_variant():
     assert "айфон 15" in variants
     assert "iphone 15" in variants
     assert any("Apple" in v for v in variants)
+
+
+def test_optics_variants():
+    variants = search_query_variants("очки")
+    assert "очки" in variants
+    assert "очки купить" in variants
+    assert "оправы для очков" in variants

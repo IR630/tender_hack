@@ -17,11 +17,13 @@ from other_public_scraper.ml.query_classifier import classify_query
 from other_public_scraper.ml.relevance_filter import cosine_similarity_batch, rank_candidates
 from other_public_scraper.models import MeiliProductDoc, OtherExtractResult, UrlCandidate
 from other_public_scraper.orgtech_seeds import orgtech_seed_candidates
+from other_public_scraper.optics_seeds import optics_seed_candidates
 from other_public_scraper.pipelines.catalog_harvest import _extract_links, expand_listing_candidates
 from other_public_scraper.pipelines.page_extractor import (
     extract_product_from_html,
     extract_products_from_listing_html,
     is_category_listing,
+    is_product_page_url,
 )
 from other_public_scraper.pipelines.web_search import search_live_urls_expanded
 from other_public_scraper.storage.meili import search_meili, upsert_products
@@ -95,6 +97,10 @@ def _is_title_relevant(title: str, query: str, category: str) -> bool:
         )
         title_lower = title.lower()
         if any(word in title_lower or word in query_lower for word in generic):
+            return True
+    if re.search(r"очк", query_lower):
+        optics_terms = ("очк", "оправ", "ray-ban", "ray ban", "диоптр", "linz", "линз", "optik", "оптик")
+        if any(term in title.lower() for term in optics_terms):
             return True
     return False
 
@@ -212,7 +218,7 @@ async def _fetch_and_extract(
 
 def _is_listing_grid_url(url: str) -> bool:
     path = urlparse(url).path.lower().rstrip("/")
-    if is_rejected_url(url):
+    if is_rejected_url(url) or is_product_page_url(url):
         return False
     segments = [part for part in path.split("/") if part]
     if not segments:
@@ -307,7 +313,7 @@ async def _search_once(query: str, region: str) -> list[OtherExtractResult]:
     t0 = time.perf_counter()
     category = classify_query(query)
     logger.info("other_search_start query=%r region=%s category=%s", query, region, category)
-
+    
     live_hits = await search_live_urls_expanded(
         query,
         limit=settings.other_max_searxng_urls,
@@ -315,6 +321,8 @@ async def _search_once(query: str, region: str) -> list[OtherExtractResult]:
     )
     if category == "orgtech" and len(live_hits) < 4:
         live_hits = _merge_candidates(live_hits, orgtech_seed_candidates(query))
+    if re.search(r"очк", query, re.IGNORECASE) and len(live_hits) < 6:
+        live_hits = _merge_candidates(live_hits, optics_seed_candidates(query))
     diag.live_urls = len(live_hits)
     diag.live_sample = [c.url[:90] for c in live_hits[:5]]
     meili_hits: list[UrlCandidate] = []
@@ -340,7 +348,7 @@ async def _search_once(query: str, region: str) -> list[OtherExtractResult]:
 
     candidates.sort(key=lambda c: url_quality_score(c.url), reverse=True)
     grid_products = await _collect_listing_grid_products(candidates, query, category)
-
+    
     harvested_candidates = candidates
     if len(grid_products) < settings.other_max_results:
         try:

@@ -7,6 +7,7 @@ import re
 _IPHONE_SE_RE = re.compile(r"^iphone\s+\d+\s+se\b", re.IGNORECASE)
 _CYRILLIC_RE = re.compile(r"[\u0400-\u04ff]")
 _IPHONE_CYR_RE = re.compile(r"айфон|айфон", re.IGNORECASE)
+_OPTICS_QUERY_RE = re.compile(r"очк", re.IGNORECASE)
 
 
 def _latin_iphone_variant(query: str) -> str | None:
@@ -56,5 +57,9 @@ def search_query_variants(query: str) -> list[str]:
         _add(f"{original} купить")
         if latin:
             _add(f"{latin} купить")
+
+    if _OPTICS_QUERY_RE.search(original):
+        _add(f"{original} купить")
+        _add("оправы для очков")
 
     return variants
