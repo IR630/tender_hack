@@ -12,7 +12,7 @@ from other_public_scraper.config import (
     ORGTECH_BRANDS,
     settings,
 )
-from other_public_scraper.diagnostics import active_diagnostics, reset_diagnostics
+from other_public_scraper.diagnostics import active_diagnostics, get_diagnostics, reset_diagnostics
 from other_public_scraper.ml.query_classifier import classify_query
 from other_public_scraper.ml.relevance_filter import cosine_similarity_batch, rank_candidates
 from other_public_scraper.models import MeiliProductDoc, OtherExtractResult, UrlCandidate
@@ -491,6 +491,10 @@ async def _search_once(
             query,
             len(ranked),
         )
+    if not products:
+        diag = get_diagnostics()
+        if diag is not None:
+            diag.log_debug()
 
     docs = [
         MeiliProductDoc(

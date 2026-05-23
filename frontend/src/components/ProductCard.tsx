@@ -22,13 +22,34 @@ function nextBasketUrl(url: string): string | null {
   return url.replace(/basket-\d+/, `basket-${String(host + 1).padStart(2, "0")}`);
 }
 
+function proxiedImageUrl(url: string): string {
+  if (!url.startsWith("http")) {
+    return url;
+  }
+  return `/api/images/proxy?url=${encodeURIComponent(url)}`;
+}
+
+function nextImageFallback(url: string): string | null {
+  const basket = nextBasketUrl(url);
+  if (basket) {
+    return basket;
+  }
+  const yandexMatch = url.match(
+    /^(https:\/\/avatars\.mds\.yandex\.net\/get-mpic\/\d+\/[^/]+)\/[^/]+$/,
+  );
+  if (yandexMatch) {
+    return `${yandexMatch[1]}/orig`;
+  }
+  return null;
+}
+
 export function ProductCard({ product }: ProductCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const [imageSrc, setImageSrc] = useState(product.image_url);
+  const [imageSrc, setImageSrc] = useState(proxiedImageUrl(product.image_url));
   const hasDescription = product.description.trim().length > 0;
 
   useEffect(() => {
-    setImageSrc(product.image_url);
+    setImageSrc(proxiedImageUrl(product.image_url));
   }, [product.image_url]);
 
   return (
@@ -39,12 +60,16 @@ export function ProductCard({ product }: ProductCardProps) {
             src={imageSrc}
             alt=""
             loading="lazy"
+            referrerPolicy="no-referrer"
             className="h-16 w-16 shrink-0 rounded-input border border-rule bg-paper-3 object-cover"
             onError={() => {
-              const fallback = nextBasketUrl(imageSrc);
-              if (fallback) {
-                setImageSrc(fallback);
+              const rawUrl = product.image_url;
+              const fallback = nextImageFallback(rawUrl);
+              if (fallback && fallback !== rawUrl) {
+                setImageSrc(proxiedImageUrl(fallback));
+                return;
               }
+              setImageSrc("");
             }}
           />
         ) : (

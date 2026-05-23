@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 import structlog
 from fastapi import FastAPI
 
-from app.api.routes import regions, search, wb_metrics
+from app.api.routes import images, regions, search, wb_metrics
 from app.core.config import settings
 
 structlog.configure(
@@ -40,6 +40,7 @@ app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
 app.include_router(search.router)
 app.include_router(regions.router)
 app.include_router(wb_metrics.router)
+app.include_router(images.router)
 
 
 @app.get("/health")

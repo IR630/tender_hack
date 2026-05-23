@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import logging
 from contextvars import ContextVar
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -29,47 +32,54 @@ class OtherSearchDiagnostics:
             self.failure_samples.append(message)
 
     def format_user_message(self) -> str:
-        lines = ["Другие источники: 0 товаров. Диагностика:"]
+        if self.timed_out:
+            return (
+                "Другие источники: поиск занял слишком много времени. "
+                "Попробуйте упростить запрос или повторите позже."
+            )
+        if self.live_urls == 0:
+            return (
+                "Другие источники: не удалось найти товары на сторонних сайтах. "
+                "Попробуйте другой запрос или повторите поиск позже."
+            )
+        if self.extract_ok == 0:
+            return (
+                "Другие источники: сайты найдены, но не удалось извлечь товары "
+                "(антибот или нестандартная вёрстка). Попробуйте другой запрос."
+            )
+        return (
+            "Другие источники: не удалось собрать достаточно товаров. "
+            "Попробуйте уточнить запрос."
+        )
+
+    def format_debug_message(self) -> str:
+        lines = [f"query={self.query!r}"]
 
         if self.timed_out:
-            lines.append(f"• Таймаут поиска ({self.query!r})")
+            lines.append("timed_out=true")
         if self.exception:
-            lines.append(f"• Ошибка: {self.exception}")
-
-        if self.live_urls == 0:
-            if self.yahoo_errors:
-                lines.append(f"• Yahoo: {self.yahoo_errors[0]}")
-            if self.bing_errors:
-                lines.append(f"• Bing: {self.bing_errors[0]}")
-            if self.searxng_unresponsive:
-                engines = ", ".join(f"{e[0]}({e[1]})" for e in self.searxng_unresponsive[:4])
-                lines.append(f"• SearXNG: движки недоступны — {engines}")
-            if not self.yahoo_errors and not self.bing_errors and not self.searxng_unresponsive:
-                lines.append("• Веб-поиск не вернул URL (проверьте SearXNG/интернет/VPN)")
-        else:
-            provider = self.live_provider or "web"
-            lines.append(f"• Поиск ({provider}): найдено {self.live_urls} URL")
-            for url in self.live_sample[:3]:
-                lines.append(f"  → {url}")
-
+            lines.append(f"exception={self.exception}")
+        if self.yahoo_errors:
+            lines.append(f"yahoo={self.yahoo_errors[0]}")
+        if self.bing_errors:
+            lines.append(f"bing={self.bing_errors[0]}")
+        if self.searxng_unresponsive:
+            engines = ", ".join(f"{e[0]}({e[1]})" for e in self.searxng_unresponsive[:4])
+            lines.append(f"searxng={engines}")
+        if self.live_urls:
+            lines.append(f"live_urls={self.live_urls} provider={self.live_provider}")
         if self.candidates_ranked:
             lines.append(
-                f"• Обработка: {self.candidates_ranked} URL → "
-                f"скачано {self.fetch_ok}, ошибок fetch {self.fetch_failed}, "
-                f"извлечено {self.extract_ok}, отфильтровано {self.extract_failed}"
+                f"ranked={self.candidates_ranked} fetch_ok={self.fetch_ok} "
+                f"fetch_failed={self.fetch_failed} extract_ok={self.extract_ok} "
+                f"extract_failed={self.extract_failed}"
             )
-
         if self.failure_samples:
-            lines.append("• Примеры отказов:")
-            for sample in self.failure_samples[:5]:
-                lines.append(f"  — {sample}")
+            lines.append("failures=" + " | ".join(self.failure_samples[:3]))
+        return "; ".join(lines)
 
-        if self.extract_failed and self.fetch_ok and self.extract_ok == 0:
-            lines.append(
-                "• Вероятная причина: антибот (401/429) или каталог без цены в HTML"
-            )
-
-        return "\n".join(lines)
+    def log_debug(self) -> None:
+        logger.info("other_search_diagnostics %s", self.format_debug_message())
 
 
 _current: ContextVar[OtherSearchDiagnostics | None] = ContextVar("other_diag", default=None)
