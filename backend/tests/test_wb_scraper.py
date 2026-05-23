@@ -74,6 +74,10 @@ async def test_search_maps_fields_from_search_api(monkeypatch):
     assert first.reviews_count == 22912
     assert first.characteristics["Бренд"] == "iLINK"
     assert first.characteristics["Продавец"] == "Мосавтошина"
+    assert "Характеристики:" in first.description
+    assert "• Бренд: iLINK" in first.description
+    assert "Рейтинг: 4.9" in first.description
+    assert "22912 отзывов" in first.description
     assert wb.scraper.last_error is None
 
 
@@ -165,3 +169,18 @@ def test_image_url_uses_host_hint():
     host = wb.host_for_nm(nm)
     url = wb.image_url(host, nm)
     assert url.startswith(f"https://basket-{host:02d}.wbbasket.ru/")
+
+
+def test_build_description_from_search_fields():
+    chars = wb.extended_characteristics(
+        {
+            "brand": "Nike",
+            "supplier": "SportShop",
+            "entity": "кроссовки",
+            "colors": ["черный", "белый"],
+        }
+    )
+    desc = wb.build_description(characteristics=chars, rating=4.8, reviews_count=120)
+    assert "• Бренд: Nike" in desc
+    assert "• Цвет: черный, белый" in desc
+    assert "Рейтинг: 4.8 (120 отзывов)" in desc

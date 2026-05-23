@@ -19,6 +19,11 @@ from app.scrapers.wb.config import (
 from app.scrapers.wb.logging_utils import log_wb_request
 from app.scrapers.wb.metrics import wb_metrics
 from app.scrapers.wb.models import WBFetchLayer, WBSearchResponse
+from app.scrapers.wb.proxy import (
+    build_proxy_dict,
+    proxy_is_configured,
+    reset_exit_ip_cache,
+)
 
 struct_logger = structlog.get_logger(component="wb_session")
 
@@ -47,6 +52,7 @@ class WBSession:
 
     user_id: str = "default"
     preset: WBUserPreset = field(default_factory=lambda: DEFAULT_WB_PRESET)
+    proxy_session_id: str = field(default_factory=lambda: f"wb{int(time.time())}")
     _session: AsyncSession | None = field(default=None, init=False, repr=False)
     created_at: float | None = field(default=None, init=False)
     last_used: float | None = field(default=None, init=False)
@@ -76,6 +82,8 @@ class WBSession:
             return {}
 
     def needs_warmup(self) -> bool:
+        if proxy_is_configured():
+            return False
         if not settings.wb_warmup_enabled:
             return False
         if self._session is None or not self._warmed or self.created_at is None:
@@ -93,12 +101,29 @@ class WBSession:
         self._session = None
         self._warmed = False
         self.created_at = None
+        reset_exit_ip_cache()
 
     async def _ensure_session(self) -> AsyncSession:
         if self._session is None:
-            self._session = AsyncSession(impersonate=self.preset.impersonate_profile)
+            proxies = build_proxy_dict(session_id=self.proxy_session_id)
+            self._session = AsyncSession(
+                impersonate=self.preset.impersonate_profile,
+                proxies=proxies,
+            )
             self.created_at = time.monotonic()
         return self._session
+
+    def _request_timeout(self) -> float:
+        if proxy_is_configured():
+            return settings.wb_proxy_timeout_seconds
+        return settings.scraper_timeout_seconds
+
+    def _should_retry_search(self, result: WBSearchResponse) -> bool:
+        if result.error is None:
+            return False
+        if result.status_code in {429, 498, 403}:
+            return True
+        return proxy_is_configured() and result.status_code == 0
 
     async def warm_up(self) -> None:
         """GET homepage + catalog to collect cookies."""
@@ -108,7 +133,7 @@ class WBSession:
             home = await session.get(
                 WARMUP_HOME_URL,
                 headers=self._browser_headers(document=True),
-                timeout=settings.scraper_timeout_seconds,
+                timeout=self._request_timeout(),
             )
             catalog = await session.get(
                 WARMUP_CATALOG_URL,
@@ -116,7 +141,7 @@ class WBSession:
                     **self._browser_headers(document=True),
                     "Referer": WARMUP_HOME_URL,
                 },
-                timeout=settings.scraper_timeout_seconds,
+                timeout=self._request_timeout(),
             )
         except Exception as exc:
             struct_logger.warning(
@@ -196,7 +221,7 @@ class WBSession:
                 SEARCH_URL,
                 params=params,
                 headers=headers,
-                timeout=settings.scraper_timeout_seconds,
+                timeout=self._request_timeout(),
             )
         except Exception as exc:
             latency_ms = (time.perf_counter() - started) * 1000
@@ -233,6 +258,12 @@ class WBSession:
         )
 
         if response.status_code in {429, 498, 403}:
+            struct_logger.warning(
+                "wb_search_blocked",
+                user_id=self.user_id,
+                status_code=response.status_code,
+                query=query,
+            )
             return WBSearchResponse(
                 [],
                 status_code=response.status_code,
@@ -274,6 +305,129 @@ class WBSession:
             pow_header=pow_header,
         )
 
+    def _max_search_retries(self) -> int:
+        if proxy_is_configured():
+            return max(settings.wb_search_max_retries, settings.wb_proxy_max_retries)
+        return settings.wb_search_max_retries
+
+    async def _adopt_worker_session(self, worker: WBSession) -> None:
+        await self.close()
+        self._session = worker._session
+        self.proxy_session_id = worker.proxy_session_id
+        self.created_at = worker.created_at
+        self.last_used = worker.last_used
+        self._warmed = worker._warmed
+        worker._session = None
+
+    async def _fetch_search_proxy_race(self, params: dict[str, object]) -> WBSearchResponse:
+        """Try several proxy IPs in parallel; reuse the session that succeeds."""
+        started = time.perf_counter()
+        best_failure: WBSearchResponse | None = None
+        parallel = max(1, settings.wb_proxy_parallel_attempts)
+        rounds = max(1, settings.wb_proxy_race_rounds)
+
+        for round_idx in range(rounds):
+            workers = [
+                WBSession(
+                    user_id=f"{self.user_id}-r{round_idx}-w{idx}",
+                    proxy_session_id=f"wb{int(time.time() * 1000)}{round_idx}{idx}",
+                )
+                for idx in range(parallel)
+            ]
+
+            async def run_worker(worker: WBSession, idx: int) -> tuple[WBSession, WBSearchResponse]:
+                query_id = f"qid{int(time.time() * 1000)}{round_idx}{idx}"
+                return worker, await worker.fetch_search_once(params, query_id=query_id)
+
+            gathered = await asyncio.gather(
+                *(run_worker(worker, idx) for idx, worker in enumerate(workers)),
+                return_exceptions=True,
+            )
+
+            winner: tuple[WBSession, WBSearchResponse] | None = None
+            for item in gathered:
+                if isinstance(item, BaseException):
+                    struct_logger.warning("wb_race_worker_failed", error=str(item))
+                    continue
+                worker, response = item
+                if response.error is None and response.products:
+                    winner = (worker, response)
+                    break
+                if response.error and (
+                    best_failure is None
+                    or (best_failure.status_code == 0 and response.status_code != 0)
+                ):
+                    best_failure = response
+
+            for worker in workers:
+                if winner is not None and worker is winner[0]:
+                    continue
+                await worker.close()
+
+            if winner is not None:
+                win_worker, response = winner
+                await self._adopt_worker_session(win_worker)
+                await win_worker.close()
+                struct_logger.info(
+                    "wb_proxy_race_success",
+                    user_id=self.user_id,
+                    round=round_idx + 1,
+                    product_count=len(response.products),
+                    query=params.get("query"),
+                )
+                log_wb_request(
+                    phase="search",
+                    user_id=self.user_id,
+                    endpoint=SEARCH_URL,
+                    status=response.status_code,
+                    latency_ms=(time.perf_counter() - started) * 1000,
+                    retry_count=round_idx,
+                    cache_hit=False,
+                    impersonate_profile=self.preset.impersonate_profile,
+                    query=params.get("query"),
+                )
+                await wb_metrics.record(
+                    success=True,
+                    latency_ms=(time.perf_counter() - started) * 1000,
+                    status_code=response.status_code,
+                    fallback_level=WBFetchLayer.PRIMARY.value,
+                )
+                return response
+
+            if round_idx + 1 < rounds:
+                await asyncio.sleep(1.0)
+
+        failure = best_failure or WBSearchResponse(
+            [],
+            status_code=429,
+            error=self._http_error_message(429, ""),
+        )
+        struct_logger.warning(
+            "wb_proxy_race_exhausted",
+            user_id=self.user_id,
+            rounds=rounds,
+            parallel=parallel,
+            query=params.get("query"),
+        )
+        log_wb_request(
+            phase="search",
+            user_id=self.user_id,
+            endpoint=SEARCH_URL,
+            status=failure.status_code or "failed",
+            latency_ms=(time.perf_counter() - started) * 1000,
+            retry_count=rounds,
+            cache_hit=False,
+            impersonate_profile=self.preset.impersonate_profile,
+            query=params.get("query"),
+        )
+        await wb_metrics.record(
+            success=False,
+            latency_ms=(time.perf_counter() - started) * 1000,
+            status_code=failure.status_code or 0,
+            fallback_level=WBFetchLayer.PRIMARY.value,
+        )
+        return failure
+
     async def fetch_search(self, params: dict[str, object]) -> WBSearchResponse:
         if circuit_is_open():
             return WBSearchResponse(
@@ -285,33 +439,60 @@ class WBSession:
                 ),
             )
 
+        if proxy_is_configured() and settings.wb_proxy_parallel_attempts > 1:
+            return await self._fetch_search_proxy_race(params)
+
         async with self._lock:
             await self.ensure_warm()
 
-        query_id = f"qid{int(time.time() * 1000)}"
+        max_retries = self._max_search_retries()
         started = time.perf_counter()
-        result = await self.fetch_search_once(params, query_id=query_id)
+        result: WBSearchResponse | None = None
 
-        if result.status_code in {429, 498} and settings.wb_search_max_retries > 0:
-            await self.close()
-            await asyncio.sleep(settings.wb_search_retry_delay_seconds)
-            async with self._lock:
-                await self.ensure_warm()
+        for attempt in range(max_retries + 1):
             query_id = f"qid{int(time.time() * 1000)}"
             result = await self.fetch_search_once(params, query_id=query_id)
-            log_wb_request(
-                phase="search",
-                user_id=self.user_id,
-                endpoint=SEARCH_URL,
-                status=result.status_code or "retry_failed",
-                latency_ms=(time.perf_counter() - started) * 1000,
-                retry_count=1,
-                cache_hit=False,
-                impersonate_profile=self.preset.impersonate_profile,
-                query=params.get("query"),
+            if not self._should_retry_search(result):
+                break
+            if attempt >= max_retries:
+                break
+            delay = min(
+                max(
+                    settings.wb_search_retry_delay_seconds * (2**attempt),
+                    2.0 if proxy_is_configured() else 0.0,
+                ),
+                8.0,
             )
-            if result.status_code in {429, 498}:
-                trip_circuit()
+            struct_logger.warning(
+                "wb_search_retry",
+                user_id=self.user_id,
+                attempt=attempt + 1,
+                max_retries=max_retries,
+                status_code=result.status_code,
+                delay_seconds=delay,
+            )
+            await self.close()
+            if proxy_is_configured():
+                self.proxy_session_id = f"wb{int(time.time() * 1000)}"
+            await asyncio.sleep(delay)
+            async with self._lock:
+                await self.ensure_warm()
+
+        assert result is not None
+        if result.status_code in {429, 498} and not proxy_is_configured():
+            trip_circuit()
+
+        log_wb_request(
+            phase="search",
+            user_id=self.user_id,
+            endpoint=SEARCH_URL,
+            status=result.status_code or "failed",
+            latency_ms=(time.perf_counter() - started) * 1000,
+            retry_count=max_retries if result.status_code in {429, 498, 403} else 0,
+            cache_hit=False,
+            impersonate_profile=self.preset.impersonate_profile,
+            query=params.get("query"),
+        )
 
         latency_ms = (time.perf_counter() - started) * 1000
         success = result.error is None and bool(result.products)
@@ -329,5 +510,6 @@ wb_session = WBSession()
 
 async def reset_session_for_tests() -> None:
     await wb_session.close()
+    reset_exit_ip_cache()
     reset_circuit_for_tests()
     await wb_metrics.reset()

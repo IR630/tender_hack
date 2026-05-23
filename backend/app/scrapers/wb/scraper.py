@@ -9,6 +9,7 @@ from app.core.models import Product, SearchRequest
 from app.core.regions import Region, resolve_region
 from app.scrapers.base import BaseScraper
 from app.scrapers.wb.assemble import assemble_products
+from app.scrapers.wb.images import resolve_product_images
 from app.scrapers.wb.circuit import circuit_is_open
 from app.scrapers.wb.logging_utils import log_wb_request
 from app.scrapers.wb.metrics import wb_metrics
@@ -93,7 +94,7 @@ class WBParser:
             logger.warning("WB parser failed for query=%r: %s", query, attempt.error)
             return [], attempt.error
 
-        products = assemble_products(attempt.products)
+        products = await resolve_product_images(assemble_products(attempt.products))
         if not products:
             return [], "Wildberries вернул товары, но ни один не прошёл фильтрацию (цена/поля)"
 

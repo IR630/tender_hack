@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 import { ProductCard } from "./ProductCard";
 import type { SearchGroup } from "../types/search";
 
@@ -12,7 +14,16 @@ function formatPrice(price: number | null): string {
   return `${Math.round(price / 100).toLocaleString("ru-RU")} ₽`;
 }
 
+const PAGE_SIZE = 10;
+
 export function SourceGroup({ group }: SourceGroupProps) {
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const hiddenCount = Math.max(0, group.products.length - visibleCount);
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [group.source, group.products.length, group.products[0]?.product_url]);
+
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
       <header className="mb-3 flex items-center justify-between gap-3">
@@ -42,13 +53,23 @@ export function SourceGroup({ group }: SourceGroupProps) {
         </div>
       ) : (
         <ul className="space-y-3">
-          {group.products.slice(0, 10).map((product) => (
+          {group.products.slice(0, visibleCount).map((product) => (
             <ProductCard key={`${product.source}-${product.product_url}`} product={product} />
           ))}
-          {group.products.length > 10 && (
-            <p className="text-sm text-slate-400">
-              и ещё {group.products.length - 10} предложений
-            </p>
+          {hiddenCount > 0 && (
+            <li>
+              <button
+                type="button"
+                onClick={() =>
+                  setVisibleCount((count) =>
+                    Math.min(count + PAGE_SIZE, group.products.length),
+                  )
+                }
+                className="w-full rounded-lg border border-slate-700 bg-slate-900/80 px-4 py-2 text-sm text-slate-200 transition hover:border-slate-500 hover:bg-slate-800"
+              >
+                Показать ещё {Math.min(PAGE_SIZE, hiddenCount)} из {hiddenCount}
+              </button>
+            </li>
           )}
         </ul>
       )}

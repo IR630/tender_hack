@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     wb_session_idle_seconds: float = 10 * 60
     wb_search_max_retries: int = 1
     wb_search_retry_delay_seconds: float = 0.5
+    wb_proxy: str = ""
+    wb_proxy_max_retries: int = 15
+    wb_proxy_sticky_session: bool = False
+    wb_proxy_timeout_seconds: float = 20.0
+    wb_proxy_parallel_attempts: int = 4
+    wb_proxy_race_rounds: int = 8
     ym_cache_enabled: bool = True
     ym_search_max_pages: int = 3
     ozon_use_browser: bool = True

@@ -47,6 +47,58 @@ def base_characteristics(product: dict) -> dict[str, str]:
     return chars
 
 
+def extended_characteristics(product: dict) -> dict[str, str]:
+    chars = base_characteristics(product)
+    entity = product.get("entity")
+    if entity:
+        chars["Категория"] = str(entity)
+
+    colors = product.get("colors")
+    if isinstance(colors, list):
+        color_names = [str(item).strip() for item in colors if str(item).strip()]
+        if color_names:
+            chars["Цвет"] = ", ".join(color_names)
+
+    supplier_rating = product.get("supplierRating")
+    if supplier_rating is not None:
+        chars["Рейтинг продавца"] = str(supplier_rating)
+
+    total_quantity = product.get("totalQuantity")
+    if total_quantity is not None:
+        chars["В наличии"] = str(total_quantity)
+
+    return chars
+
+
+def build_description(
+    *,
+    characteristics: dict[str, str],
+    rating: float | None,
+    reviews_count: int | None,
+) -> str:
+    lines: list[str] = []
+    if characteristics:
+        lines.append("Характеристики:")
+        for label, value in characteristics.items():
+            lines.append(f"• {label}: {value}")
+
+    details: list[str] = []
+    if rating is not None:
+        rating_line = f"Рейтинг: {rating:g}"
+        if reviews_count is not None:
+            rating_line += f" ({reviews_count} отзывов)"
+        details.append(rating_line)
+    elif reviews_count is not None:
+        details.append(f"Отзывов: {reviews_count}")
+
+    if details:
+        if lines:
+            lines.append("")
+        lines.extend(details)
+
+    return "\n".join(lines).strip()
+
+
 def build_product(raw: dict, image: str, characteristics: dict[str, str]) -> Product | None:
     nm = raw.get("id")
     name = raw.get("name")
@@ -56,16 +108,23 @@ def build_product(raw: dict, image: str, characteristics: dict[str, str]) -> Pro
 
     feedbacks = raw.get("nmFeedbacks") or raw.get("feedbacks")
     rating = raw.get("reviewRating") or raw.get("nmReviewRating") or raw.get("rating")
+    rating_value = float(rating) if rating else None
+    reviews_value = int(feedbacks) if feedbacks else None
     return Product(
         source="wildberries",
         source_domain="wildberries.ru",
         title=str(name),
+        description=build_description(
+            characteristics=characteristics,
+            rating=rating_value,
+            reviews_count=reviews_value,
+        ),
         price=price,
         image_url=image,
         product_url=PRODUCT_URL_FMT.format(nm=nm),
         characteristics=characteristics,
-        rating=float(rating) if rating else None,
-        reviews_count=int(feedbacks) if feedbacks else None,
+        rating=rating_value,
+        reviews_count=reviews_value,
     )
 
 
@@ -79,7 +138,7 @@ def assemble_products(raw_products: list[dict]) -> list[Product]:
         product = build_product(
             raw,
             image_url(host, int(nm)),
-            base_characteristics(raw),
+            extended_characteristics(raw),
         )
         if product is not None:
             products.append(product)
