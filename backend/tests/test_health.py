@@ -1,7 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.models import SearchRequest
 from app.main import app
 from app.tasks.store import search_task_store
 

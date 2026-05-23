@@ -299,13 +299,9 @@ async def _fetch_url_uncached(
 
 async def _fetch_search_html_uncached(query: str) -> tuple[str, str | None]:
     search_url = f"https://www.ozon.ru/search/?text={quote_plus(query)}"
-    return await fetch_search_html_for_url(search_url, label=query)
-
-
-async def fetch_search_html_for_url(url: str, *, label: str | None = None) -> tuple[str, str | None]:
     return await _fetch_url_uncached(
-        url,
-        label=label or url,
+        search_url,
+        label=query,
         timeout_seconds=settings.ozon_browser_total_timeout_seconds,
         wait_seconds=settings.ozon_browser_wait_seconds,
         require_products=True,
@@ -320,10 +316,6 @@ async def fetch_product_html(url: str) -> tuple[str, str | None]:
         wait_seconds=settings.ozon_enrich_wait_seconds,
         require_product_detail=True,
     )
-
-
-async def fetch_search_html(query: str) -> tuple[str, str | None]:
-    return await _fetch_search_html_uncached(query)
 
 
 async def search_products(

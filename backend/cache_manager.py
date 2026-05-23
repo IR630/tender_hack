@@ -42,12 +42,3 @@ def get_cached_products(query: str) -> list[dict[str, Any]] | None:
 def set_cached_products(query: str, products: list[dict[str, Any]], *, ttl: int = DEFAULT_TTL_SECONDS) -> None:
     key = _normalize_key(query)
     _get_cache().set(key, json.dumps(products, ensure_ascii=False), expire=ttl)
-
-
-def clear_cache() -> None:
-    _get_cache().clear()
-
-
-def cache_stats() -> dict[str, int]:
-    c = _get_cache()
-    return {"size": len(c), "volume": c.volume()}

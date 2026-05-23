@@ -64,7 +64,7 @@ backend/app/
   scrapers/      # WB, Ozon, Yandex Market
   sources/       # 4-й динамический источник
   query/         # опечатки, синонимы
-  ml/            # ranker, validator
+  ml/            # ranker (post-ranking результатов)
   orchestrator/  # параллельный опрос источников
 
 frontend/src/

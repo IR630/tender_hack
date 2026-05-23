@@ -101,9 +101,9 @@ API создаёт **`task_id`** (UUID) и сразу отвечает фрон�
 
 ## ML Ranker — заглушка
 
-`ml/ranker.py` — сортировка по `relevance_score`, который scrapers не заполняют. **Не вызывается** из оркестратора.
+`ml/ranker.py` — post-ranking по `relevance_score`. **Пока не вызывается** из оркестратора, будет подключён для сортировки результатов.
 
-Реальная ML только внутри Ozon (`ozon_ml_filter.py`).
+Релевантность внутри Ozon broad search: `ozon_ml_filter.py`.
 
 ---
 

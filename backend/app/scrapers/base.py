@@ -1,13 +1,6 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 
 from app.core.models import Product, SearchRequest
-
-
-@dataclass
-class ScraperResult:
-    products: list[Product] = field(default_factory=list)
-    error: str | None = None
 
 
 class BaseScraper(ABC):
