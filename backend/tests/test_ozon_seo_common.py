@@ -4,7 +4,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 from app.scrapers.ozon_ml_filter import filter_top_k_by_similarity
-from app.scrapers.ozon_seo_common import extract_broad_search_products, extract_product_enrichment
+from app.scrapers.ozon_seo_common import (
+    build_search_preview_description,
+    extract_broad_search_products,
+    extract_product_enrichment,
+)
 
 SAMPLE = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "ozon_search_tile_sample.html"
 
@@ -19,9 +23,27 @@ def test_extract_broad_search_from_tile_cards() -> None:
     assert first["price"] > 0
     assert first["url"].startswith("https://www.ozon.ru/product/")
     assert first["image"] and "wc1000" in first["image"]
-    assert first["description"] is None
-    assert first["characteristics"] == {}
+    assert first["description"]
+    assert "HP DeskJet 2320" in first["description"]
+    assert first["rating"] == 4.7
+    assert first["reviews_count"] == 955
+    assert "Оригинал" in first["badges"]
     assert all("баллов за отзыв" not in p["title"].lower() for p in products)
+
+
+def test_build_search_preview_description_from_metadata() -> None:
+    description = build_search_preview_description(
+        {
+            "title": "Ноутбук ASUS Vivobook Go 15",
+            "rating": 4.8,
+            "reviews_count": 120,
+            "badges": ["Оригинал"],
+        }
+    )
+    assert "ASUS Vivobook Go 15" in description
+    assert "★ 4.8" in description
+    assert "120 отзывов" in description
+    assert "Оригинал" in description
 
 
 def test_extract_broad_search_ignores_recommendation_widget() -> None:

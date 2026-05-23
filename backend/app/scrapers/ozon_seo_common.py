@@ -202,6 +202,32 @@ def _extract_image_url(card: Node) -> str | None:
     return None
 
 
+def build_search_preview_description(preview: dict[str, Any]) -> str:
+    """Build a card description from search-page metadata (no product-page visit)."""
+    lines: list[str] = []
+    title = str(preview.get("title") or "").strip()
+    if title:
+        lines.append(title)
+
+    rating = preview.get("rating")
+    reviews_count = preview.get("reviews_count")
+    rating_line: list[str] = []
+    if isinstance(rating, (int, float)):
+        rating_line.append(f"★ {rating:g}")
+    if isinstance(reviews_count, int) and reviews_count > 0:
+        rating_line.append(f"{reviews_count:,}".replace(",", " ") + " отзывов")
+    if rating_line:
+        lines.append(" · ".join(rating_line))
+
+    badges = preview.get("badges")
+    if isinstance(badges, list):
+        badge_text = ", ".join(str(item).strip() for item in badges if str(item).strip())
+        if badge_text:
+            lines.append(badge_text)
+
+    return "\n\n".join(lines).strip()
+
+
 def _append_preview(
     products: list[dict[str, Any]],
     seen: set[str],
@@ -211,6 +237,9 @@ def _append_preview(
     url: str,
     image: str | None,
     max_results: int,
+    rating: float | None = None,
+    reviews_count: int | None = None,
+    badges: list[str] | None = None,
 ) -> None:
     if len(products) >= max_results or price <= 0:
         return
@@ -221,16 +250,18 @@ def _append_preview(
     if normalized_url in seen:
         return
     seen.add(normalized_url)
-    products.append(
-        {
-            "title": clean_title,
-            "price": price,
-            "url": normalized_url,
-            "image": image if _is_real_image(image) else None,
-            "description": None,
-            "characteristics": {},
-        }
-    )
+    preview: dict[str, Any] = {
+        "title": clean_title,
+        "price": price,
+        "url": normalized_url,
+        "image": image if _is_real_image(image) else None,
+        "rating": rating,
+        "reviews_count": reviews_count,
+        "badges": badges or [],
+        "characteristics": {},
+    }
+    preview["description"] = build_search_preview_description(preview)
+    products.append(preview)
 
 
 def _append_product(
@@ -539,6 +570,7 @@ def _extract_broad_from_html_cards(html: str, *, max_results: int) -> list[dict[
         title = _extract_title_from_card(card)
         price = _extract_price_from_card(card)
         image = _extract_image_url(card)
+        rating, reviews_count, badges = _extract_card_metadata(card)
         _append_preview(
             products,
             seen,
@@ -547,6 +579,9 @@ def _extract_broad_from_html_cards(html: str, *, max_results: int) -> list[dict[
             url=href,
             image=image,
             max_results=max_results,
+            rating=rating,
+            reviews_count=reviews_count,
+            badges=badges,
         )
 
     return products
@@ -633,6 +668,9 @@ def _items_to_previews(items: list[dict[str, Any]], *, max_results: int) -> list
             url=str(item.get("url") or ""),
             image=item.get("image"),
             max_results=max_results,
+            rating=item.get("rating"),
+            reviews_count=item.get("reviews_count"),
+            badges=item.get("badges"),
         )
     return products
 
@@ -738,6 +776,36 @@ def _find_cards(tree: HTMLParser) -> list[Node]:
         if cards:
             return cards
     return []
+
+
+def _extract_card_metadata(card: Node) -> tuple[float | None, int | None, list[str]]:
+    rating: float | None = None
+    reviews_count: int | None = None
+    badges: list[str] = []
+
+    for node in card.css("span"):
+        content = node.text(strip=True).replace("\xa0", " ")
+        if rating is None and re.fullmatch(r"\d[.,]\d", content):
+            try:
+                rating = float(content.replace(",", "."))
+            except ValueError:
+                pass
+        reviews_match = re.search(r"([\d\s\u2009\u202f]+)\s*отзыв", content, re.I)
+        if reviews_match and reviews_count is None:
+            digits = re.sub(
+                r"[^\d]",
+                "",
+                reviews_match.group(1).replace("\u202f", "").replace("\u2009", "").replace(" ", ""),
+            )
+            if digits:
+                reviews_count = int(digits)
+
+    card_text = card.text(separator=" ", strip=True)
+    for badge in ("Оригинал", "Распродажа"):
+        if badge in card_text and badge not in badges:
+            badges.append(badge)
+
+    return rating, reviews_count, badges
 
 
 def _extract_title_from_card(card: Node) -> str | None:
