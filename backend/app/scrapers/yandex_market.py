@@ -562,6 +562,21 @@ def _apply_yandex_region(session: curl_requests.Session, yandex_market_id: int) 
     session.cookies.set("yandex_gid", region_value, domain="market.yandex.ru")
 
 
+def _fetch_first_page_raw(query: str, yandex_market_id: int) -> list[Product]:
+    """Fetch only page 1 without enrichment — used for the fast initial batch."""
+    session = curl_requests.Session(impersonate="chrome120")
+    _apply_yandex_region(session, yandex_market_id)
+    session.get(f"{BASE_URL}/", headers=DEFAULT_HEADERS, timeout=20)
+
+    def fetch_page_html(page: int) -> str:
+        search_url = f"{BASE_URL}/search?text={quote_plus(query)}&page={page}&lr={yandex_market_id}"
+        response = session.get(search_url, headers=DEFAULT_HEADERS, timeout=25)
+        response.raise_for_status()
+        return response.text
+
+    return _collect_paginated_products(fetch_page_html, query, max_pages=1)
+
+
 def _fetch_products_sync(query: str, yandex_market_id: int) -> list[Product]:
     session = curl_requests.Session(impersonate="chrome120")
     _apply_yandex_region(session, yandex_market_id)
@@ -639,7 +654,7 @@ async def _fetch_with_playwright(query: str, yandex_market_id: int) -> list[Prod
 class YandexMarketScraper(BaseScraper):
     source = "yandex_market"
 
-    async def search(self, request: SearchRequest) -> list[Product]:
+    async def search(self, request: SearchRequest, *, on_partial=None) -> list[Product]:
         self.clear_error()
         query = request.query.strip()
         if not query:
@@ -651,6 +666,22 @@ class YandexMarketScraper(BaseScraper):
         if cached is not None:
             return cached
 
+        # Stage 1: page 1 only, no enrichment — send fast batch immediately
+        if on_partial:
+            try:
+                fast_raw = await asyncio.to_thread(
+                    _fetch_first_page_raw, query, region.yandex_market_id
+                )
+                fast = fast_raw[: self.FAST_LIMIT]
+                if fast:
+                    try:
+                        await on_partial(fast)
+                    except Exception:
+                        pass
+            except Exception:
+                logger.warning("YM fast page fetch failed for query=%r", query)
+
+        # Stage 2: full multi-page + enrichment
         try:
             products = await asyncio.to_thread(_fetch_products_sync, query, region.yandex_market_id)
             if products:

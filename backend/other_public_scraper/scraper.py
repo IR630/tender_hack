@@ -307,7 +307,13 @@ async def _collect_listing_grid_products(
     return products
 
 
-async def _search_once(query: str, region: str) -> list[OtherExtractResult]:
+_FAST_LIMIT = 5
+_FULL_LIMIT = 15
+
+
+async def _search_once(
+    query: str, region: str, *, on_partial=None
+) -> list[OtherExtractResult]:
     from app.core.regions import resolve_region
 
     region_obj = resolve_region(region)
@@ -389,10 +395,19 @@ async def _search_once(query: str, region: str) -> list[OtherExtractResult]:
             seen_grid.add(key)
             grid_products.append(item)
 
-    if len(grid_products) >= settings.other_max_results:
-        ranked = []
-        fetched_groups: list[list[OtherExtractResult]] = []
-    else:
+    # Accumulate products starting from grid results
+    products: list[OtherExtractResult] = []
+    seen_product_urls: set[str] = set()
+    for item in grid_products:
+        key = item.product_url.split("#")[0]
+        seen_product_urls.add(key)
+        products.append(item)
+
+    ranked: list = []
+    skipped = 0
+    fast_published = False
+
+    if len(products) < settings.other_max_results:
         rank_pool = min(settings.other_rank_pool_size, len(candidates))
         ranked = rank_candidates(
             query,
@@ -410,23 +425,56 @@ async def _search_once(query: str, region: str) -> list[OtherExtractResult]:
         else:
             logger.info("other_search_ranked query=%r ranked=%d", query, len(ranked))
         diag.candidates_ranked = len(ranked)
-        fetched_groups = await asyncio.gather(
-            *[_fetch_and_extract(candidate, query, category) for candidate in ranked]
-        )
-    products: list[OtherExtractResult] = []
-    seen_product_urls: set[str] = set()
-    for item in grid_products:
-        key = item.product_url.split("#")[0]
-        seen_product_urls.add(key)
-        products.append(item)
-    for group in fetched_groups:
-        for item in group:
-            key = item.product_url.split("#")[0]
-            if key in seen_product_urls:
+
+        tasks = [
+            asyncio.create_task(_fetch_and_extract(candidate, query, category))
+            for candidate in ranked
+        ]
+
+        for fut in asyncio.as_completed(tasks):
+            try:
+                group = await fut
+            except asyncio.CancelledError:
+                skipped += 1
                 continue
-            seen_product_urls.add(key)
-            products.append(item)
-    skipped = sum(1 for group in fetched_groups if not group)
+            except Exception:
+                skipped += 1
+                continue
+
+            if not group:
+                skipped += 1
+
+            for item in group:
+                key = item.product_url.split("#")[0]
+                if key in seen_product_urls:
+                    continue
+                seen_product_urls.add(key)
+                products.append(item)
+
+            if on_partial and not fast_published and len(products) >= _FAST_LIMIT:
+                try:
+                    partial_sorted = sorted(
+                        products, key=lambda p: p.relevance_score, reverse=True
+                    )
+                    await on_partial(partial_sorted[:_FAST_LIMIT])
+                except Exception:
+                    pass
+                fast_published = True
+
+            if len(products) >= _FULL_LIMIT:
+                for t in tasks:
+                    if not t.done():
+                        t.cancel()
+                break
+
+    # If grid alone had enough, try fast partial from grid
+    if on_partial and not fast_published and products:
+        try:
+            partial_sorted = sorted(products, key=lambda p: p.relevance_score, reverse=True)
+            await on_partial(partial_sorted[:_FAST_LIMIT])
+        except Exception:
+            pass
+
     products.sort(key=lambda p: p.relevance_score, reverse=True)
     products = products[: settings.other_max_results]
 
@@ -463,13 +511,15 @@ async def _search_once(query: str, region: str) -> list[OtherExtractResult]:
     return products
 
 
-async def search_other(query: str, region: str = "moscow") -> list[OtherExtractResult]:
+async def search_other(
+    query: str, region: str = "moscow", *, on_partial=None
+) -> list[OtherExtractResult]:
     query = query.strip()
     if not query:
         return []
     try:
         return await asyncio.wait_for(
-            _search_once(query, region),
+            _search_once(query, region, on_partial=on_partial),
             timeout=settings.other_search_timeout_seconds,
         )
     except TimeoutError:
