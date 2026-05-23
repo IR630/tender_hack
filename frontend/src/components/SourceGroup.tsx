@@ -24,7 +24,11 @@ export function SourceGroup({ group }: SourceGroupProps) {
 
       {group.products.length === 0 ? (
         <div className="space-y-1 text-sm">
-          {group.error ? (
+          {group.status === "blocked_by_waf" ? (
+            <p className="rounded-md border border-orange-900/60 bg-orange-950/40 px-3 py-2 text-orange-200">
+              {group.error ?? "Ozon: доступ временно ограничен защитой маркетплейса"}
+            </p>
+          ) : group.error ? (
             <p className="rounded-md border border-amber-900/60 bg-amber-950/30 px-3 py-2 text-amber-200">
               {group.error}
             </p>

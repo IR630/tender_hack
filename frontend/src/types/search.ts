@@ -24,6 +24,7 @@ export interface SearchGroup {
   domains: string[];
   products: Product[];
   error?: string | null;
+  status?: string | null;
 }
 
 export interface SearchResponse {

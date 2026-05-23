@@ -1,4 +1,4 @@
-"""Ozon search via nodriver (background-friendly, ~25s WAF pass)."""
+"""Ozon search via nodriver with fail-fast WAF handling."""
 
 from __future__ import annotations
 
@@ -6,18 +6,29 @@ import asyncio
 import logging
 import os
 import re
-from urllib.parse import quote_plus, urljoin
+import time
+from collections.abc import Awaitable, Callable
+from typing import Any, TypeVar
+from urllib.parse import quote_plus
 
 import nodriver as uc
-from nodriver import cdp
-from selectolax.parser import HTMLParser
+import structlog
 
+from app.core.browser_semaphore import ozon_browser_semaphore
 from app.core.config import settings
+from app.scrapers.ozon_seo_common import extract_products
+from cache_manager import get_cached_products, set_cached_products
 
 logger = logging.getLogger(__name__)
+struct_logger = structlog.get_logger(component="ozon_browser")
 
-_browser_lock = asyncio.Lock()
+T = TypeVar("T")
+
 CHALLENGE_TITLES = ("Antibot Captcha", "Antibot Challenge Page", "Доступ ограничен")
+OZON_HOME_URL = "https://www.ozon.ru/"
+OZON_WAF_STATUS = "blocked_by_waf"
+OZON_WAF_MESSAGE = "Ozon: доступ временно ограничен защитой маркетплейса"
+POLL_INTERVAL_SECONDS = 2.0
 
 
 def _is_challenge(html: str) -> bool:
@@ -29,113 +40,323 @@ def _is_challenge(html: str) -> bool:
         return True
     if "Похоже, нет" in html and "fab_" in html:
         return True
-    if len(html) > 100_000 and "/product/" in html:
-        return False
     return len(html) < 15_000 and "antibot" in html.lower()
 
 
-def _parse_price_rub(text: str | None) -> int:
-    if not text:
-        return 0
-    digits = re.sub(r"[^\d]", "", text.replace("\u202f", "").replace(" ", ""))
-    if not digits:
-        return 0
-    return int(digits) * 100
+def _is_product_detail_ready(html: str) -> bool:
+    """Product SPA renders description/characteristics asynchronously after first paint."""
+    if _is_challenge(html):
+        return False
+    if re.search(r'property="og:description"\s+content="[^"]{10,}"', html, re.I):
+        return True
+    if html.count("data-widget") >= 20:
+        return True
+    return False
 
 
-def _extract_products(html: str) -> list[dict[str, str | int | None]]:
-    tree = HTMLParser(html)
-    seen: set[str] = set()
-    products: list[dict[str, str | int | None]] = []
-
-    for a in tree.css("a[href*='/product/']"):
-        href = a.attributes.get("href", "")
-        if not href:
-            continue
-        url = href if href.startswith("http") else urljoin("https://www.ozon.ru", href)
-        if url in seen:
-            continue
-        title = a.attributes.get("title") or a.attributes.get("aria-label") or a.text(strip=True)
-        if not title or len(title) < 3 or title in ("Распродажа", "Вау-цены"):
-            continue
-        price_text = None
-        parent = a.parent
-        for _ in range(5):
-            if parent is None:
-                break
-            pm = re.search(r"([\d\s\u202f]+)\s*₽", parent.text(strip=True))
-            if pm:
-                price_text = pm.group(0)
-                break
-            parent = parent.parent
-        price = _parse_price_rub(price_text)
-        if price <= 0:
-            continue
-        img_el = a.css_first("img")
-        image = None
-        if img_el:
-            image = img_el.attributes.get("src") or img_el.attributes.get("data-src")
-        seen.add(url)
-        products.append({"title": title[:300], "price": price, "url": url, "image": image})
-        if len(products) >= settings.ozon_browser_max_results:
-            break
-
-    return products
+def _is_search_ready(html: str) -> bool:
+    if _is_challenge(html):
+        return False
+    return "/product/" in html and "₽" in html
 
 
-async def _block_images(tab: uc.Tab) -> None:
-    try:
-        await tab.send(cdp.network.enable())
-        await tab.send(
-            cdp.network.set_blocked_urls(
-                urls=["*.png", "*.jpg", "*.jpeg", "*.gif", "*.webp", "*.svg", "*.ico"]
-            )
-        )
-    except Exception:
-        pass
+def _waf_block_result() -> tuple[list[dict[str, Any]], str, str]:
+    return [], OZON_WAF_MESSAGE, OZON_WAF_STATUS
 
 
-async def fetch_search_html(query: str) -> tuple[str, str | None]:
-    """Return (html, error). Uses global lock — one browser at a time."""
-    url = f"https://www.ozon.ru/search/?text={quote_plus(query)}"
+def _browser_headless() -> bool:
     headless = settings.ozon_browser_headless
     if headless is None:
         headless = not bool(os.getenv("DISPLAY"))
+    return headless
 
-    async with _browser_lock:
-        browser = None
+
+def _browser_args() -> list[str]:
+    return [
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-blink-features=AutomationControlled",
+        "--window-size=1920,1080",
+    ]
+
+
+def _browser_executable_path() -> str | None:
+    return os.getenv("CHROME_BIN") or os.getenv("GOOGLE_CHROME_BIN")
+
+
+async def _start_browser() -> uc.Browser:
+    start_kwargs: dict[str, Any] = {
+        "headless": _browser_headless(),
+        "lang": "ru-RU",
+        "browser_args": _browser_args(),
+        "sandbox": False,
+    }
+    chrome_bin = _browser_executable_path()
+    if chrome_bin:
+        start_kwargs["browser_executable_path"] = chrome_bin
+    return await uc.start(**start_kwargs)
+
+
+async def _warmup_browser(browser: uc.Browser, *, label: str) -> str | None:
+    """Visit ozon.ru homepage to pass WAF and collect cookies before search."""
+    if not settings.ozon_browser_warmup_home:
+        return None
+    home_tab = await browser.get(OZON_HOME_URL)
+    await home_tab.sleep(settings.ozon_browser_warmup_seconds)
+    home_html, home_ok = await _poll_until_ready(
+        home_tab,
+        settings.ozon_browser_warmup_seconds + settings.ozon_browser_wait_seconds,
+        require_products=False,
+    )
+    if home_ok or not _is_challenge(home_html):
+        struct_logger.info("ozon_browser_warmup_ok", query=label, html_len=len(home_html))
+        return None
+    struct_logger.warning("ozon_browser_warmup_challenge", query=label, html_len=len(home_html))
+    return "waf"
+
+
+async def _poll_until_ready(
+    tab: uc.Tab,
+    max_seconds: float,
+    *,
+    require_products: bool = False,
+    require_product_detail: bool = False,
+) -> tuple[str, bool]:
+    deadline = time.monotonic() + max_seconds
+    html = ""
+    while time.monotonic() < deadline:
+        html = await tab.get_content()
+        if require_product_detail:
+            ready = _is_product_detail_ready(html or "")
+        elif require_products:
+            ready = _is_search_ready(html or "")
+        else:
+            ready = not _is_challenge(html or "")
+        if ready:
+            return html or "", True
+        await tab.sleep(POLL_INTERVAL_SECONDS)
+    return html or "", False
+
+
+async def navigate_and_get_html(
+    browser: uc.Browser,
+    url: str,
+    *,
+    wait_seconds: float,
+    require_products: bool = False,
+    require_product_detail: bool = False,
+) -> tuple[str, str | None]:
+    tab = await browser.get(url)
+    if require_product_detail:
+        await tab.sleep(1.0)
+    html, ok = await _poll_until_ready(
+        tab,
+        wait_seconds,
+        require_products=require_products,
+        require_product_detail=require_product_detail,
+    )
+    if require_product_detail and ok:
         try:
-            browser = await uc.start(
-                headless=headless,
-                browser_args=[
-                    "--no-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--blink-settings=imagesEnabled=false",
-                ],
-            )
-            tab = await browser.get(url)
-            await _block_images(tab)
-            await tab.sleep(settings.ozon_browser_wait_seconds)
+            await tab.scroll_down(1200)
+            await tab.sleep(2.0)
             html = await tab.get_content()
-            if _is_challenge(html or ""):
-                return html or "", "Ozon antibot: страница не прошла проверку WAF"
-            return html or "", None
-        except Exception as exc:
-            logger.exception("Ozon browser fetch failed for %r", query)
-            return "", str(exc)
-        finally:
-            if browser is not None:
-                try:
-                    browser.stop()
-                except Exception:
-                    pass
+        except Exception:
+            pass
+    if ok:
+        return html, None
+    if _is_challenge(html or ""):
+        return html or "", "waf"
+    return html or "", "empty"
 
 
-async def search_products(query: str) -> tuple[list[dict[str, str | int | None]], str | None]:
-    html, error = await fetch_search_html(query)
+def is_challenge(html: str) -> bool:
+    return _is_challenge(html)
+
+
+def waf_block_result() -> tuple[list[dict[str, Any]], str, str]:
+    return _waf_block_result()
+
+
+async def run_browser_pipeline(
+    label: str,
+    handler: Callable[[uc.Browser], Awaitable[tuple[T, str | None]]],
+    *,
+    timeout_seconds: float | None = None,
+) -> tuple[T | None, str | None]:
+    """Single browser session under global semaphore — reuse cookies across navigations."""
+    timeout = timeout_seconds or settings.ozon_pipeline_timeout_seconds
+    max_attempts = max(1, settings.ozon_browser_max_retries + 1)
+
+    if ozon_browser_semaphore.locked():
+        struct_logger.info("ozon_browser_queued", query=label, message="Запрос поставлен в очередь")
+
+    async with ozon_browser_semaphore:
+        for attempt in range(1, max_attempts + 1):
+            browser: uc.Browser | None = None
+            struct_logger.info(
+                "ozon_browser_pipeline_start",
+                query=label,
+                attempt=attempt,
+                max_attempts=max_attempts,
+                timeout_seconds=timeout,
+            )
+            try:
+                browser = await _start_browser()
+                warmup_error = await _warmup_browser(browser, label=label)
+                if warmup_error == "waf" and attempt < max_attempts:
+                    struct_logger.warning("ozon_browser_warmup_retry", query=label, attempt=attempt)
+                    await asyncio.sleep(settings.ozon_browser_retry_delay_seconds)
+                    continue
+
+                result, error = await asyncio.wait_for(handler(browser), timeout=timeout)
+                if error is None:
+                    return result, None
+                if error in ("empty", "waf") and attempt < max_attempts:
+                    struct_logger.warning(
+                        "ozon_browser_pipeline_retry",
+                        query=label,
+                        attempt=attempt,
+                        error=error,
+                    )
+                    await asyncio.sleep(settings.ozon_browser_retry_delay_seconds)
+                    continue
+                return result, error
+            except asyncio.TimeoutError:
+                struct_logger.warning(
+                    "ozon_browser_pipeline_timeout",
+                    query=label,
+                    attempt=attempt,
+                    timeout_seconds=timeout,
+                )
+                if attempt < max_attempts:
+                    await asyncio.sleep(settings.ozon_browser_retry_delay_seconds)
+                    continue
+                return None, "timeout"
+            except Exception as exc:
+                logger.exception("Ozon browser pipeline failed for %r", label)
+                return None, str(exc)
+            finally:
+                if browser is not None:
+                    try:
+                        browser.stop()
+                    except Exception:
+                        pass
+
+    return None, "waf"
+
+
+async def _run_browser_session(
+    url: str,
+    *,
+    label: str,
+    wait_seconds: float,
+    require_products: bool = False,
+    require_product_detail: bool = False,
+) -> tuple[str, str | None]:
+    async def _handler(browser: uc.Browser) -> tuple[str, str | None]:
+        return await navigate_and_get_html(
+            browser,
+            url,
+            wait_seconds=wait_seconds,
+            require_products=require_products,
+            require_product_detail=require_product_detail,
+        )
+
+    extra_timeout = 30.0 if require_product_detail else 20.0
+    html, error = await run_browser_pipeline(
+        label,
+        _handler,
+        timeout_seconds=wait_seconds + extra_timeout,
+    )
+    if html is None:
+        return "", error or "waf"
+    return html, error
+
+
+async def _fetch_url_uncached(
+    url: str,
+    *,
+    label: str,
+    timeout_seconds: float,
+    wait_seconds: float,
+    require_products: bool = False,
+    require_product_detail: bool = False,
+) -> tuple[str, str | None]:
+    html, error = await _run_browser_session(
+        url,
+        label=label,
+        wait_seconds=wait_seconds,
+        require_products=require_products,
+        require_product_detail=require_product_detail,
+    )
+    if error == "timeout":
+        struct_logger.warning("ozon_fail_fast_timeout", query=label, timeout_seconds=timeout_seconds)
+    if error == "waf":
+        struct_logger.warning("ozon_fail_fast_waf", query=label, phase="fetch")
+    return html, error
+
+
+async def _fetch_search_html_uncached(query: str) -> tuple[str, str | None]:
+    search_url = f"https://www.ozon.ru/search/?text={quote_plus(query)}"
+    return await fetch_search_html_for_url(search_url, label=query)
+
+
+async def fetch_search_html_for_url(url: str, *, label: str | None = None) -> tuple[str, str | None]:
+    return await _fetch_url_uncached(
+        url,
+        label=label or url,
+        timeout_seconds=settings.ozon_browser_total_timeout_seconds,
+        wait_seconds=settings.ozon_browser_wait_seconds,
+        require_products=True,
+    )
+
+
+async def fetch_product_html(url: str) -> tuple[str, str | None]:
+    return await _fetch_url_uncached(
+        url,
+        label=url,
+        timeout_seconds=settings.ozon_enrich_timeout_seconds,
+        wait_seconds=settings.ozon_enrich_wait_seconds,
+        require_product_detail=True,
+    )
+
+
+async def fetch_search_html(query: str) -> tuple[str, str | None]:
+    return await _fetch_search_html_uncached(query)
+
+
+async def search_products(
+    query: str,
+    *,
+    skip_cache: bool = False,
+) -> tuple[list[dict[str, Any]], str | None, str | None]:
+    """Return (products, error_message, source_status)."""
+    if settings.ozon_two_stage_enabled:
+        from app.scrapers.two_stage_ozon import parser as two_stage_parser
+
+        return await two_stage_parser.search(query, skip_cache=skip_cache)
+
+    if settings.ozon_browser_cache_enabled and not skip_cache:
+        cached = get_cached_products(query)
+        if cached is not None:
+            return cached, None, None
+
+    html, error = await _fetch_search_html_uncached(query)
+    if error in ("timeout", "waf"):
+        return _waf_block_result()
     if error:
-        return [], error
-    products = _extract_products(html)
+        struct_logger.warning("ozon_fail_fast_error", query=query, error=error)
+        if "antibot" in error.lower() or "waf" in error.lower():
+            return _waf_block_result()
+        return [], error, None
+
+    products = extract_products(html, max_results=settings.ozon_browser_max_results)
     if not products:
-        return [], "Ozon: товары не найдены на странице поиска"
-    return products, None
+        if _is_challenge(html):
+            return _waf_block_result()
+        return [], "Ozon: товары не найдены на странице поиска", None
+
+    if settings.ozon_browser_cache_enabled:
+        set_cached_products(query, products, ttl=settings.ozon_browser_cache_ttl_seconds)
+
+    return products, None, None

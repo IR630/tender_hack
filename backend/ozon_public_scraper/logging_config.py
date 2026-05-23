@@ -3,13 +3,10 @@ from __future__ import annotations
 import logging
 import sys
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 import structlog
 from structlog.contextvars import bind_contextvars, clear_contextvars, merge_contextvars
-
-from ozon_public_scraper.config import settings
 
 _configured = False
 
@@ -25,18 +22,10 @@ def setup_logging() -> None:
         return
     _configured = True
 
-    log_dir = Path(settings.ozon_log_dir)
-    log_dir.mkdir(parents=True, exist_ok=True)
-    date_str = datetime.now(UTC).strftime("%Y-%m-%d")
-    log_file = log_dir / f"ozon_public_{date_str}.jsonl"
-
     logging.basicConfig(
         format="%(message)s",
         level=logging.INFO,
-        handlers=[
-            logging.StreamHandler(sys.stdout),
-            logging.FileHandler(log_file, encoding="utf-8"),
-        ],
+        handlers=[logging.StreamHandler(sys.stdout)],
         force=True,
     )
 

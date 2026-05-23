@@ -138,6 +138,5 @@ API на хосте с реальным дисплеем.
 
 ```bash
 cd backend
-DISPLAY=:0 uv run python scripts/debug_ozon.py "принтер hp"
 uv run pytest tests/test_ozon_seo_common.py tests/test_two_stage_ozon.py -q
 ```

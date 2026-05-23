@@ -29,17 +29,18 @@ SOURCE_DISPLAY_NAMES = {
 SOURCE_ORDER = ("wildberries", "yandex_market", "other", "ozon")
 
 
-async def _safe_search(scraper, coro) -> tuple[list[Product], str | None]:
+async def _safe_search(scraper, coro) -> tuple[list[Product], str | None, str | None]:
     source = getattr(scraper, "source", "unknown")
     if hasattr(scraper, "clear_error"):
         scraper.clear_error()
     try:
         products = await coro
         error = getattr(scraper, "last_error", None)
-        return products, error
+        status = getattr(scraper, "last_source_status", None) if scraper else None
+        return products, error, status
     except Exception as exc:
         logger.exception("Source %r crashed during search; treating as 0 results", source)
-        return [], f"{type(exc).__name__}: {exc}"
+        return [], f"{type(exc).__name__}: {exc}", None
 
 
 def _build_summary(groups: list[SearchGroup]) -> SearchSummary:
@@ -67,7 +68,12 @@ def _build_summary(groups: list[SearchGroup]) -> SearchSummary:
     )
 
 
-def _build_group(source: str, products: list[Product], error: str | None = None) -> SearchGroup:
+def _build_group(
+    source: str,
+    products: list[Product],
+    error: str | None = None,
+    status: str | None = None,
+) -> SearchGroup:
     min_price = min((product.price for product in products), default=None)
     domains = sorted({product.source_domain for product in products if product.source_domain})
     return SearchGroup(
@@ -78,6 +84,7 @@ def _build_group(source: str, products: list[Product], error: str | None = None)
         domains=domains,
         products=products,
         error=error,
+        status=status,
     )
 
 
@@ -112,8 +119,8 @@ async def run_search(request: SearchRequest) -> SearchResponse:
     groups_by_source: dict[str, SearchGroup] = {}
 
     async def _run_one(source: str, scraper: Any, coro: Coroutine[Any, Any, list[Product]]) -> None:
-        products, error = await _safe_search(scraper, coro)
-        groups_by_source[source] = _build_group(source, products, error)
+        products, error, status = await _safe_search(scraper, coro)
+        groups_by_source[source] = _build_group(source, products, error, status)
 
     await asyncio.gather(
         _run_one("wildberries", wb.scraper, wb.scraper.search(search_request)),
@@ -139,8 +146,8 @@ async def run_search_task(task_id: str, request: SearchRequest) -> None:
 
         async def _run_and_publish(source: str, scraper, coro, message: str) -> None:
             await search_task_store.update_progress(task_id, message=message)
-            products, error = await _safe_search(scraper, coro)
-            groups_by_source[source] = _build_group(source, products, error)
+            products, error, status = await _safe_search(scraper, coro)
+            groups_by_source[source] = _build_group(source, products, error, status)
             partial = [groups_by_source.get(s) for s in SOURCE_ORDER if s in groups_by_source]
             partial = [g for g in partial if g is not None]
             await search_task_store.update_progress(task_id, message=f"Готово: {SOURCE_DISPLAY_NAMES[source]}", groups=partial)
@@ -170,7 +177,7 @@ async def run_search_task(task_id: str, request: SearchRequest) -> None:
             "ozon",
             ozon.scraper,
             ozon.scraper.search(search_request),
-            "Ozon: браузер проходит WAF (~25 с)…",
+            "Ozon: браузер проходит WAF (до 35 с)…",
         )
 
         ordered = [groups_by_source[s] for s in SOURCE_ORDER]

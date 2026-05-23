@@ -166,7 +166,7 @@ export default function App() {
       {(loading || result) && orderedGroups.length > 0 && (
         <div className="space-y-4">
           {loading && (
-            <p className="text-sm text-slate-400">Частичные результаты (Ozon может занять ~30 с)…</p>
+            <p className="text-sm text-slate-400">Частичные результаты (Ozon — до 35 с)…</p>
           )}
           {!loading && result && (
             <div className="flex flex-wrap gap-2 text-sm">

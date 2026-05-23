@@ -15,7 +15,14 @@ services:
       SEARXNG_URL: http://127.0.0.1:8080
       MEILI_URL: http://127.0.0.1:7700
       MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-dev-master-key}
-      OZON_USE_BROWSER: ${OZON_USE_BROWSER:-false}
+      OZON_USE_BROWSER: ${OZON_USE_BROWSER:-true}
+      OZON_BROWSER_CACHE_ENABLED: ${OZON_BROWSER_CACHE_ENABLED:-false}
+      OZON_BROWSER_WAIT_SECONDS: ${OZON_BROWSER_WAIT_SECONDS:-35}
+      OZON_BROWSER_MAX_RETRIES: ${OZON_BROWSER_MAX_RETRIES:-2}
+      OZON_DISK_CACHE_DIR: /app/data/ozon_disk_cache
+      DISPLAY: ":99"
+    volumes:
+      - ozon_disk_cache:/app/data/ozon_disk_cache
     depends_on:
       - redis
       - searxng
@@ -63,3 +70,4 @@ services:
 volumes:
   redis_data:
   meili_data:
+  ozon_disk_cache:

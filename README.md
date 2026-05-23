@@ -11,6 +11,8 @@ cp .env.example .env
 docker compose -f docker/docker-compose.yml up --build
 ```
 
+Подробная инструкция: [docs/docker-run.md](docs/docker-run.md)
+
 - **Frontend:** http://localhost:5173
 - **API:** http://localhost:8000
 - **API docs:** http://localhost:8000/docs
@@ -52,6 +54,7 @@ cd frontend && pnpm install && pnpm dev
 - [WB scraper — реализация](docs/wb-scraper-implementation.md)
 - [Ozon scraper — реализация](docs/ozon-scraper-implementation.md)
 - [Ozon — гибридный демо-стенд](docs/ozon-hybrid-demo.md)
+- [Запуск через Docker](docs/docker-run.md)
 
 ## Стек
 

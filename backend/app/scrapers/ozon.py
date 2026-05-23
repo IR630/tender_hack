@@ -21,7 +21,11 @@ class OzonScraper(BaseScraper):
 
     async def _search_browser(self, request: SearchRequest) -> list[Product]:
         self.clear_error()
-        raw, error = await ozon_browser.search_products(request.query.strip())
+        raw, error, status = await ozon_browser.search_products(request.query.strip())
+        if status == ozon_browser.OZON_WAF_STATUS:
+            self.set_source_status(status)
+            self.set_error(error or ozon_browser.OZON_WAF_MESSAGE)
+            return []
         if error:
             self.set_error(error)
             return []
@@ -33,8 +37,8 @@ class OzonScraper(BaseScraper):
                 price=int(item["price"] or 0),
                 image_url=str(item.get("image") or "https://www.ozon.ru/favicon.ico"),
                 product_url=str(item["url"]),
-                characteristics={},
-                description="",
+                characteristics=dict(item.get("characteristics") or {}),
+                description=str(item.get("description") or ""),
             )
             for item in raw
         ]

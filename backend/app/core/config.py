@@ -16,10 +16,27 @@ class Settings(BaseSettings):
     ym_cache_enabled: bool = True
     ym_search_max_pages: int = 3
     ozon_use_browser: bool = True
-    ozon_browser_wait_seconds: float = 25.0
+    ozon_browser_wait_seconds: float = 30.0
+    ozon_browser_total_timeout_seconds: float = 45.0
+    ozon_browser_warmup_home: bool = True
+    ozon_browser_warmup_seconds: float = 5.0
+    ozon_browser_max_retries: int = 1
+    ozon_browser_retry_delay_seconds: float = 3.0
     ozon_browser_headless: bool | None = None
     ozon_browser_max_results: int = 30
+    ozon_two_stage_enabled: bool = True
+    ozon_broad_search_max: int = 36
+    ozon_ml_top_k: int = 5
+    ozon_enrich_enabled: bool = True
+    ozon_enrich_concurrency: int = 1
+    ozon_enrich_delay_seconds: float = 5.0
+    ozon_enrich_wait_seconds: float = 15.0
+    ozon_enrich_timeout_seconds: float = 25.0
+    ozon_pipeline_timeout_seconds: float = 180.0
     search_task_poll_interval_seconds: float = 3.0
+    ozon_browser_cache_enabled: bool = False
+    ozon_browser_cache_ttl_seconds: int = 24 * 60 * 60
+    ozon_disk_cache_dir: str = ""
 
 
 settings = Settings()

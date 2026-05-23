@@ -45,6 +45,7 @@ class SearchGroup(BaseModel):
     domains: list[str] = Field(default_factory=list)
     products: list[Product] = Field(default_factory=list)
     error: str | None = None
+    status: str | None = None
 
 
 class SearchRequest(BaseModel):
