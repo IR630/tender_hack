@@ -17,6 +17,7 @@ from app.core.config import settings
 from app.core.models import Product, SearchRequest
 from app.core.regions import resolve_region
 from app.scrapers.base import BaseScraper
+from app.utils.image_urls import normalize_marketplace_image_url
 
 logger = logging.getLogger(__name__)
 
@@ -440,7 +441,7 @@ def _parse_search_html(html: str) -> list[Product]:
                     delivery=delivery_text,
                 ),
                 price=price_kopecks,
-                image_url=image,
+                image_url=normalize_marketplace_image_url(image),
                 product_url=urljoin(BASE_URL, href),
                 characteristics=characteristics,
                 rating=rating,
@@ -639,6 +640,15 @@ async def _fetch_with_playwright(query: str, yandex_market_id: int) -> list[Prod
 class YandexMarketScraper(BaseScraper):
     source = "yandex_market"
 
+    @staticmethod
+    def _with_normalized_images(products: list[Product]) -> list[Product]:
+        return [
+            product.model_copy(
+                update={"image_url": normalize_marketplace_image_url(product.image_url)}
+            )
+            for product in products
+        ]
+
     async def search(self, request: SearchRequest) -> list[Product]:
         self.clear_error()
         query = request.query.strip()
@@ -649,11 +659,12 @@ class YandexMarketScraper(BaseScraper):
 
         cached = await _load_cached_products(region.id, query)
         if cached is not None:
-            return cached
+            return self._with_normalized_images(cached)
 
         try:
             products = await asyncio.to_thread(_fetch_products_sync, query, region.yandex_market_id)
             if products:
+                products = self._with_normalized_images(products)
                 await _store_cached_products(region.id, query, products)
                 return products
             self.set_error("Яндекс Маркет не нашёл подходящих товаров по запросу")
@@ -664,6 +675,7 @@ class YandexMarketScraper(BaseScraper):
         try:
             products = await _fetch_with_playwright(query, region.yandex_market_id)
             if products:
+                products = self._with_normalized_images(products)
                 await _store_cached_products(region.id, query, products)
                 return products
             if not self.last_error:
