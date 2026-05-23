@@ -45,10 +45,12 @@ cd frontend && pnpm install && pnpm dev
 
 ## Документация
 
+- [**Документация (маркетплейсы + категории)**](docs/README.md)
 - [Архитектура (набросок)](architecture.md)
 - [Условия хакатона](task.md)
 - [Contributing](docs/CONTRIBUTING.md)
 - [Ограничения хакатона](docs/ARCHITECTURE_CONSTRAINTS.md)
+- [Запуск через Docker](docs/docker-run.md)
 
 ## Стек
 
