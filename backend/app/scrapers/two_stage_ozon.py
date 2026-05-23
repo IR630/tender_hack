@@ -12,7 +12,11 @@ import structlog
 from app.core.config import settings
 from app.scrapers import ozon_browser
 from app.scrapers.ozon_ml_filter import filter_top_k_by_similarity
-from app.scrapers.ozon_seo_common import extract_broad_search_products, extract_product_enrichment
+from app.scrapers.ozon_seo_common import (
+    build_search_preview_description,
+    extract_broad_search_products,
+    extract_product_enrichment,
+)
 
 logger = logging.getLogger(__name__)
 struct_logger = structlog.get_logger(component="two_stage_ozon")
@@ -48,14 +52,17 @@ def _apply_enrichment(product: dict[str, Any], detail: dict[str, Any]) -> None:
 
 
 def _preview_to_product(preview: dict[str, Any]) -> dict[str, Any]:
+    description = preview.get("description") or build_search_preview_description(preview)
     return {
         "title": preview.get("title"),
         "price": preview.get("price"),
         "url": preview.get("url"),
         "image": preview.get("image"),
-        "description": preview.get("description"),
+        "description": description,
         "characteristics": dict(preview.get("characteristics") or {}),
         "similarity": preview.get("similarity"),
+        "rating": preview.get("rating"),
+        "reviews_count": preview.get("reviews_count"),
     }
 
 
@@ -124,7 +131,8 @@ class TwoStageOzonParser:
                 )
                 return products, None
 
-            for index, product in enumerate(products):
+            enrich_limit = max(0, settings.ozon_enrich_max_products)
+            for index, product in enumerate(products[:enrich_limit]):
                 if index > 0:
                     await asyncio.sleep(settings.ozon_enrich_delay_seconds)
                 url = str(product.get("url") or "")

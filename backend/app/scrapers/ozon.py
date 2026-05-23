@@ -39,6 +39,8 @@ class OzonScraper(BaseScraper):
                 product_url=str(item["url"]),
                 characteristics=dict(item.get("characteristics") or {}),
                 description=str(item.get("description") or ""),
+                rating=item.get("rating"),
+                reviews_count=item.get("reviews_count"),
             )
             for item in raw
         ]
