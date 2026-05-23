@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 SourceType = Literal["wildberries", "ozon", "yandex_market", "other"]
+GroupStatus = Literal["live", "cached", "temporarily_unavailable"]
 
 
 class Product(BaseModel):
@@ -44,6 +45,9 @@ class SearchGroup(BaseModel):
     min_price: int | None = None
     domains: list[str] = Field(default_factory=list)
     products: list[Product] = Field(default_factory=list)
+    status: GroupStatus = "live"
+    notice: str | None = None
+    cache_timestamp: str | None = None
 
 
 class SearchRequest(BaseModel):

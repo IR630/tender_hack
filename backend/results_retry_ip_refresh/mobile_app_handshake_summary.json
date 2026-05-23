@@ -1,0 +1,73 @@
+{
+  "total": 27,
+  "challenge_url_count": 9,
+  "support_url_count": 27,
+  "app_like_support_variants": [
+    {
+      "app": "market_web",
+      "ua": "android",
+      "extra": "plain",
+      "status_code": 403,
+      "has_challenge_url": true,
+      "has_support_url": true,
+      "response_size": 5303,
+      "latency_ms": 276,
+      "snippet": "      {\"incidentId\": \"fab_chlg_20260522221900_01KS8WAEMGV7VCCR8PKQFFS6SR\", \"challengeURL\": \"https://api.ozon.ru/challenge.html?challenge=i39NDMsZmFiX2NobGdfMjAyNjA1MjIyMjE5MDBfMDFLUzhXQUVNR1Y3VkNDUjhQS1FGRlM2U1Isc2M6QVhu"
+    },
+    {
+      "app": "market_web",
+      "ua": "android",
+      "extra": "mobile_android",
+      "status_code": 403,
+      "has_challenge_url": true,
+      "has_support_url": true,
+      "response_size": 5275,
+      "latency_ms": 224,
+      "snippet": "      {\"incidentId\": \"fab_chlg_20260522221900_01KS8WAEVTYZH501K7E6QXZEZF\", \"challengeURL\": \"https://api.ozon.ru/challenge.html?challenge=gtXNDMsZmFiX2NobGdfMjAyNjA1MjIyMjE5MDBfMDFLUzhXQUVWVFlaSDUwMUs3RTZRWFpFWkYsc2M6Q3Ix"
+    },
+    {
+      "app": "market_web",
+      "ua": "android",
+      "extra": "device_app",
+      "status_code": 403,
+      "has_challenge_url": true,
+      "has_support_url": true,
+      "response_size": 5243,
+      "latency_ms": 234,
+      "snippet": "      {\"incidentId\": \"fab_chlg_20260522221901_01KS8WAF37270WYZJJMR46SMTZ\", \"challengeURL\": \"https://api.ozon.ru/challenge.html?challenge=vklNDMsZmFiX2NobGdfMjAyNjA1MjIyMjE5MDFfMDFLUzhXQUYzNzI3MFdZWkpKTVI0NlNNVFosc2M6U2Rw"
+    },
+    {
+      "app": "market_web",
+      "ua": "ios",
+      "extra": "plain",
+      "status_code": 403,
+      "has_challenge_url": true,
+      "has_support_url": true,
+      "response_size": 5280,
+      "latency_ms": 281,
+      "snippet": "      {\"incidentId\": \"fab_chlg_20260522221901_01KS8WAFBP333CBTY3TE0D5CM5\", \"challengeURL\": \"https://api.ozon.ru/challenge.html?challenge=p5kNDMsZmFiX2NobGdfMjAyNjA1MjIyMjE5MDFfMDFLUzhXQUZCUDMzM0NCVFkzVEUwRDVDTTUsc2M6TTdQ"
+    },
+    {
+      "app": "market_web",
+      "ua": "ios",
+      "extra": "mobile_android",
+      "status_code": 403,
+      "has_challenge_url": true,
+      "has_support_url": true,
+      "response_size": 5220,
+      "latency_ms": 237,
+      "snippet": "      {\"incidentId\": \"fab_chlg_20260522221901_01KS8WAFKDZXFQ9Z5PH45GP0F9\", \"challengeURL\": \"https://api.ozon.ru/challenge.html?challenge=xslNDMsZmFiX2NobGdfMjAyNjA1MjIyMjE5MDFfMDFLUzhXQUZLRFpYRlE5WjVQSDQ1R1AwRjksc2M6RmNY"
+    },
+    {
+      "app": "market_web",
+      "ua": "ios",
+      "extra": "device_app",
+      "status_code": 403,
+      "has_challenge_url": true,
+      "has_support_url": true,
+      "response_size": 5252,
+      "latency_ms": 339,
+      "snippet": "      {\"incidentId\": \"fab_chlg_20260522221901_01KS8WAFX2TGKC2QGX20FEX9D5\", \"challengeURL\": \"https://api.ozon.ru/challenge.html?challenge=wveNDMsZmFiX2NobGdfMjAyNjA1MjIyMjE5MDFfMDFLUzhXQUZYMlRHS0MyUUdYMjBGRVg5RDUsc2M6aUd3"
+    }
+  ]
+}

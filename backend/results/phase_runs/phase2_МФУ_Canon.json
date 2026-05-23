@@ -1,0 +1,74 @@
+{
+  "query": "МФУ Canon",
+  "status": "blocked",
+  "method_used": null,
+  "products": [],
+  "attempts": [
+    {
+      "method": "idea_e_direct_composer",
+      "status": "failed",
+      "latency_ms": 629,
+      "products_found": 0,
+      "fields_completeness": {
+        "title": 0,
+        "price": 0,
+        "image": 0,
+        "url": 0,
+        "characteristics": 0
+      },
+      "products": [],
+      "http_status": 403,
+      "response_size": 5290,
+      "error": "api_challenge",
+      "notes": "composer-api is challenge-protected from current IP.",
+      "diagnostics": {
+        "challenge_url": "https://api.ozon.ru/challenge.html?challenge=ZwsNDMsZmFiX2NobGdfMjAyNjA1MjIyMTI1NTdfMDFLUzhTOUFEUDQ2NDdYNk1YWjdKTjZQWVAsc2M6cEt4N2FRbzJiUVM4Mi1zTmpFYkMyQTo2M1A1WEMwWWF5dDVPN0lzelZ0bmZrRThoXy1mcGNXSXd6RXk3Q1I0YVVXWktsSlVBMVRUSy1JNDFVNVdIRnczWTN2Q2xkRnNZVDlUM0tFWVdPa1M1SUNZbVd4ZFp3VjlrakwyTERtbkc2UWpKVjRaQXhwQ1ZxQ1hGMEc5SmRRTHNXcEdieWZKakstbGxQcW1UWGdkQUU3YVZoVkI2UVYySzBCbW4yZlBKQTg5QWlLYllCM29KTkg1VDRObno1UEpKeHpTdXltUUVuek1zdFVoT3RVMnRqLWdfb19ndHBGSDNJUjVFckZ6WFlhYWs5RC14a3Q4dGhXeV9WQzZyeUpfTUh3RDM1elF5MnVfS3p1WUZXdF8yYkJRVkNrZW8tNFFxbkdPeXpOdGUtUTBmS0tvMDBvR29qVUFHZ1RqLXR2R2V3Tl9jc24tdW1TZmRHWTB2UGc2V3JJZ1duY05ZVUpPbFVNQklKcGZZUkxBbV9FVE4yZUNpNUNpWkxoWjNJN1JsSGczemxEa0hseGl5YzIxZmJxUTFrOXFWTTAxYVVOaVJZSUhycU9KT00wcnR2bjcxaVZDYlZjdXVqVG5vdGJXcmViS0xleTVLOHloaHhyTkJBLUcxTjdqeklxd1FPSVJUSHUycGVjZWxTSkE1YkVDZ2tFSFZVZndSMl8xNng4dnBmMDZHV2d0ZkxLV19NbU1jTTdhckdlOHJwYktXcm5fUWhKOVhVX3pNeXRzbmlScHB5WWJublBvaGp3dnpVWWJEdzBLbGVzZXR4d3dfWVRObks3b2JfeFNIdFpLT25mTS15MGszV3NYTXItdWc0MWVPbVBRTXYzM2luYTdpM2c5U1ZmRkpPT2pYTGlQdk9LTy1YUW5zQ2pCTXAzTC1JVDlOd09nbDNyN2tMdHUwVW1HZm1pR1V0V1ZJWlVTRWVwaTlROWp5TDgtaFdsN0tuRjdnSXF5dU5UNWtYYklreFZGYW4zUVhFOVphM0ViNmg1b1RoMlBfbUkyYldkVVl4eUh3MjNiRnpHTWxQUTZ0dW9hUTN3N1g1NHRDS0czT1ZSalhmaGdBcEdGbDRNdE9EdFBmSnBVVmxucFZQZUdZb2FuNnU3QXhvUzc4TmlkTGYxMU5zaElxbTJYeGhxRDJTOHlRWG9aeVRodVNVS0cyWHVxSF9sc2ZFQnBUcHMtMHUybmZNb1NEdkNZMW9Cc2k4b25LUUEyQWRURUJHR1ZGbUQtdTJUNnAyemJvQ1phS0FaQ2FIakFGTWVzUC0yeXBYTEwzb1lMSkM4Qkh2RzFEc2trNG1GOGFka08yM1pkWm5qZ210UUxhNmpRMzM2WF85ejBvYXZiQjZaOUpHQ25qOGVPNV82b3FkeHBtTXl3cU1KcWVMdGIzZHRqMVQ4ZnJyYW9iaDMxTVRMY2JRbm1fUUU1Sm9nRGFXRVVjd0lDblBEd2dlT2trLWhPanRVWHNqVEdzQ19GWmNIQ2YtTFh1Qk5NVmZCU2FuTmRRdGpmVk9kQkxOME9hbWNORTRGVlVvbVlBZUlOVk1tOXdmMEJPZ1QyakZEY3hDNGo0Mkp6WjkteFFLRkVsRDd3YXU2SG9fRG02MEZqT2Utc0VMRFZZbGwyQmdfSE9kWE9na0MtWWFaMWJWSl96eW91T3BUb3BCUnl0cVNuWEp5NlNfZVd3dUEyVVJuT3lTV3MxWUMwQzdoWTZKeWVYMEtXR29YVnJ3bEtrY005TXh5bHBYMzVCS3JfRjI2ZEZ5cEpqdnhHeHp3dW52bUFCRGhjRnJmVjZBdFc3UzR3UXJjQ0hhcU9vMGFGR2NWTEwzdGFWTlU4WldPREx5MVBobG5MMkI0SUQ1eF9FbHpqTWczUjhRWDVnV3FmWVlGX1I0MFNieXBUVnhmanlDQmczbTk4TE90Wjhza0FXeEVvTnNEZ1ZYTVRJdVdBS09sdmdKYTlURFNPalFHdEZjc2xud0FzeEptR1F3cFNXVENua044X0RpMW5zcHhCNENYQXV1R0pYa1FCeVJIV0hyOV80WmpTNHg2c1duUVh1amMxRG0xeDl1ZWd5OS11T0JfaFI0dVJ3N2g2RGlmMVhZN1BSTVZuZVRvd2U2VTJ0YjZrMFdvemNuTTVkdnVKTTNfa3RhcVhKQi1SWDBlRVZGbXVERDhyblJmN2IwNjNQS2tEUE5oY0hoSEFPOEtzMjNRRmtDQVFBOTZheERDSWdvWDZJSmFuanplckI5OG5CeGJvYmtkT3ZhNVQxRGE3LUdGRXRfNElaQ2ZVbzNzbkg1eW5ZN0o4MHpuR1NkVmZvbUktbkZUaDRxTnhlQ1o1MGE0S0U4MElIUkh2TTdQY0FEbjdQYzE2Y28ycVZOZlRKNkRhbDQyTklJeU9ZTTdXWTEzNWhiT1JwZEJpemRwdTY5bUxOV1dLSGpVb1JXRHQySWpNT0dJQ3dKbmdJWld2bXIyaHBMZ3dlMGV6a1dSVGlBTThlM1d6R1NsZ3JIQzlOcnBnR1hfd0VCS1RBMVFUMUlSa1h2QW5FbWozVldpcEdBTDgxSzBiUGU5b1VWYnM2amNWbVhEUTJhbzZ3R3psb19md0hFOVVQZFFJLVlHajFORHFzZG9YbjlFd3VEVjZobjVISGU5Z2xIb3U3WmFzeW5HLWxRa1p2R002bnlGQ2pmYWxnR0J6aU5TMVVUYUJPQzlzLU1uMFNEMU1KR0NDdVRXd3c2aW1vUXk3UHZpZVhYWXJhTlppWkxMYmVickpwdGxXSDlpN2NyTUJJbDRwc3B2OUVTMnFjaDE4V2V3bGJHSUFfeS1kT2dTWUZvVVd0RXhjZU1Sa09ZNXlQa0gyY01XUTh5bFlqZ1hCRWpLTV9YaTdpUnRmaE9wSVdGcXJka1lQR3lpR3BZZXJOanRsdzVTQVFoRUdMaS0tTGsyVkpVSVR5MmVlUGRnT2dUb0tVZHkxOTBQellXYjdLa0dPV2o0ZUU3eENKMjhvZDg0WUVpZGNENHNxVjF4N0YwdjJndTFDb0Uzc2ZlTkhqaWFCeHo1UXFmbUhSd3B1RXUzX0Q4dlA4VHhzWmhnRG8yZXdlUnl3WURMc0tUNDhhTGFZRGxxRE9RY3F4dVBzWEpobDJpMDhyV09IUzl0OElhclpSZGRpa3A1WG1qMXFBRTFEWkZhUDhOYnVYVGdwaEN1UngzaVBGYklFcDlYTHptTlp1NnZHZ0wtV2o5a1RGbGJxRDlURkV6dUFZa056ZU1MMzFVcWRlVGJLallNNy1oSGFiUkhfZ0tpcFNudmI4QWZoQlYzazhzd3FuMDdKa0wwS2tQN09DdjhnRG9MS042V3JYU3lRay0tMWUwdG13MUtfeXBhdzNzb2w0cEZDNjFka1NsNE5xQVQ5TWUwcVByUkJYSW00MDlteFBldmtVNW5vaE9qQjJfa3NkZE5XVVdUcHlUbGlsZXlsbmNWX0lvaUg2clFjOGQwdWtLQ3ZDNk0zZHJpUWxSSHlEcVloM3lDT1FRQVVuSl83OG5Vb3JNRGRNQkxrTFBhT0VwR2RwVklVQ0JKX3FWV2xfd3FRY3p2VGN6YUpkNkJmZk9yb2RUeUlMWW9uakltWTlEeU5udEc1VXhyTEhiOS1lMlU2UjJnOWtPem9TbERZSktzVkRYX3FscVo0YkxiYVRpa2dhbVMzZm03cmRJR0FJVFh1YXFCQW1JOEt3T0wtY3NMaG1xUnc4cUJuTVZOYk5QdDdmS29ObHY5YllIdEpwbUh3UjZBRTNvYWllSzMxajNpV2lQXy1fR0hsTjQ1YlJyVmU5VGdMWU91MEdJeHpJMnZVNGtaVVFoX3oxRms5MEk2QzVYbmVXeWJDNENGRmpZOUtvVkFQOVZ5YVFFTXhLQlVubkVGZy1hamI0RDNMWGZqYlpQbWxrcFcwZVVGTEl0VWNmT0hjUFFtcDYwOHVGNFpSWFFORlp0czRUQ2RYSk96MjZGS0VYRzRac21NVk1DYUZyb3RjNXkwY01BUDVyZ1lVZ3B1WTgwR3NZdDNMOEs5bk5hTVMtWDhjVGlZSHljUUFOaDBObXRIVVM4Qml4ZWZBcTBBX1hwVERYcEFBZ1VvVXdxZWdJVS03dHFPNHE2QUNjRENLY0QzckdYOUppN2s2QWs0TTZ1VF9WRkgweFpHTG02akMtVE55WE9sbjFtSUctbFgwd1ZENkFET25uYkI2ZDh1TEZYNURWeWZhUkp6aDdKVzdjUGdmcTBoUGh5aGUwbWRsT25RUF8yQWx2Z2NJUjVNbVNvMUZ4bC1iNllDcXNvbUkzQzc4R2o5OGFwTnVNMnpNTzVXUG9RVUwxSFNlcE81cGw3bWcxSGo2dkJybWFhMlprWGVETmt0S3Q5anRzZmxITVI4RWhkeTNiZ0QzSnRQTVZRMzNwZDZUNkZQZ0dDYlNoYmMwNHN0VmhjZ3BQSDBIOmV5SnpkWEJ3YjNKMFgyUnZiV0ZwYmlJNkluZDNkeTV2ZW05dUxuSjFJaXdpY0hvaU9pSXhOaUo5&ver=json_43_form&mode=m"
+      }
+    },
+    {
+      "method": "idea_b_html",
+      "status": "failed",
+      "latency_ms": 549,
+      "products_found": 0,
+      "fields_completeness": {
+        "title": 0,
+        "price": 0,
+        "image": 0,
+        "url": 0,
+        "characteristics": 0
+      },
+      "products": [],
+      "http_status": 403,
+      "response_size": 106149,
+      "error": "antibot_challenge",
+      "notes": "Blocked by challenge page.",
+      "diagnostics": {}
+    },
+    {
+      "method": "idea_d_browser_xhr",
+      "status": "failed",
+      "latency_ms": 5758,
+      "products_found": 0,
+      "fields_completeness": {
+        "title": 0,
+        "price": 0,
+        "image": 0,
+        "url": 0,
+        "characteristics": 0
+      },
+      "products": [],
+      "http_status": 403,
+      "response_size": 100288,
+      "error": "access_denied",
+      "notes": "Browser never reached search JSON because top-level request was blocked.",
+      "diagnostics": {
+        "observed_urls": [
+          "https://www.ozon.ru/search/?text=%D0%9C%D0%A4%D0%A3+Canon"
+        ],
+        "title": "Доступ ограничен"
+      }
+    }
+  ],
+  "blocked_reason": "api_challenge",
+  "latency_ms": 11729
+}

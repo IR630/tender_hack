@@ -1,0 +1,75 @@
+{
+  "query": "футболка мужская хлопок",
+  "status": "blocked",
+  "method_used": null,
+  "products": [],
+  "attempts": [
+    {
+      "method": "idea_e_direct_composer",
+      "status": "failed",
+      "latency_ms": 408,
+      "products_found": 0,
+      "fields_completeness": {
+        "title": 0,
+        "price": 0,
+        "image": 0,
+        "url": 0,
+        "characteristics": 0
+      },
+      "products": [],
+      "http_status": 403,
+      "response_size": 5546,
+      "error": "api_challenge",
+      "notes": "composer-api is challenge-protected from current IP.",
+      "diagnostics": {
+        "challenge_url": "https://api.ozon.ru/challenge.html?challenge=qhyNDMsZmFiX2NobGdfMjAyNjA1MjIyMTI0NThfMDFLUzhTN0dLQjk0U1NFMEFRMldFNjU3MkEsc2M6Wk9sZG1jQVhFZjJoWlVFZGZpR0FKUTpoOHhCNGlvOFRfSjZhX21IWTQ1d2lIY3RnTGFXYU50eFNNWGlWRkFmazZwRTV6cE1nUGVLaHJabTZpdVA2YjVrcEhoNGNPRHBLc3AtelpfWUhIQXhlYm5IcngwQ0NtbG1mUmozY2dZNVN2eER2Z05WRThNZEJ2Y19oNW1mVFFpMXZfYy1wVXBKaFdSX214cXBGcDh1WEFISmJaVVNPVmljMG9OY0RTRVk5dTRGZ2tBQUFvZjctakc4azdIVUoxVUVxRTVXVTB5dDhHZzBsdGg5bkl2cHRoWlIxMnQ3QUZKalJheHFwSzQwNFIzay1hYXQzcDVYY2J0UGdvSVZzdkJHdUQ1QmEtdDN1MjcxbFlTY0cxLUNGYnB2endoaEd4cEdKeFVTUGNiUU1sT2VYTG9BMXFoMERWSFlJTndsQ1M0ejRGR20zRWNvOXNOZEpmVzZiSVlwX1k4VDJ2VGNtd3JYVk9UY0JHS1hGWklyMGctdjRfOVVvWGN2MzVONE5udmlXTTZhT0lkczJIa01pOXFnclhGTkJ4YW9NWFp1QXo0VXVzN3pWcXB0UTA1WlJZcDVjdXNnU3FQb0VSQjBxVjFLb2NQZ3JOeFdYUU1vSHl2UnZaY0dZTllYVS03YTk2Q3FWdURLSzBBTDloelBIRnkyYTByb2RHbGpkSU91ZDI0RnVUSGxpdkJMOWl1Zkdsbzd4eTduTDByQWlveUtxVHhNV1JReXdZNUZHSFdoaENySUlhajhIemlyR0x3X3Zfa2pDMEZmcXg0U1l3dGtXT1Bwak85R1pMYlBja1lGMDZlMTd5NldUeHhrdjhmZFF0eHVBWnMyRnRNSmQxVTUydTVITFdmaC1zQ1IxU0FCQmlMenJxRlVCek83a2lsMmNxaW1MQm1yU3JyNVlKZUZCM1R0WWE0MmdaS0Qza3N3Z2FQN2dKeGtqWHVPVlczaHVOM3dQeWo2VW93dEdHT3VFRmQzbUt4QXVYaE5zQXcyLUdUWF81bUFkWVRMRjdtR3ZnN1lMZEhBM1VSLVM5ZGxkMG1CenlRTFc0QmpPcFFST0pTVXMzMTBmSi1Cd2g3SG52VWhJR0Q2cmQxSDM1TGtpZ2RNcjVyXy1fZG9JWUU2dHZVUjR5Y2p4UE9NV0tzUFI4QWVDSS1reWFWUHlidnlhd2s3aF9oX1FvemduSnVVYlFWSUxIazc5VnpweVAwSUZxMU9ta3JBRlRPX0lfeE95ZGpNRll4NDBnY0p6VFNmbUhvNlBzQkM2T0JURVlOVTMxOTVNbG9jVk1PdGI0QlBGcG51ZFJxcExiY0ZISzFiMFA1VWRFdi11OVRlQkQ1cHBxRm9GUlkweGxGaUp0dVVBT0hsREN4V252WDJqemYxVEQ2TVkxMDdMLTFaWmI0VndZUHJQNnJSd0p6QXljMGVlYW1Yb0xTRHQ5TDlTb0tSSGFGZjdWS1NvY0Y5M1Nrc2o1eGtxSWg4Z2FTdXc1SUpmcXFQdm5QLUJHLXF2TVZ5SzRadlpOZHFJdXRDbnctWW5JWk04alBIZGxrUHFQSFNvdWRyOGZ0T2hqN3lPN285NkhmNUhPczFLWGs5LVhkQmJvYkVwSG5uRmhvM2xfY3hnVVZSdDBKWEp1TjhIeUxJdTgybFRfMk5GTFRLTXhkeXVFUmlKbmliLXhGZzhVSVRYZGNBaWJlRV9BR181dWU1Z3dXWUJvaTJsaGpiQ2tHNUNXNEViSjI2VEk3NHhaSW5iaG95cXdlZFNjd0Y3UGN3OGdMTGRwQlR4UUk3MGp2bU9WYTJLVHVZLUJpaEwwYXVWV256bE9ORVRITjNCNGtWTV9sRl9DSTBFOFc2TkgtbjVyLWRlVGg5ckNxR3ZQLVl4OE5iYUJtb0s3S2Jvc2cxZzhJUGdndDBoNWE3czVqUmNVekxuUGlHWjZyb1FJZFNLTTRKc1cyMDRYOXRsNEZteHF0VTFHS1psd2JwZ2VPNzk4eVRMNGR4VXB1cjVxNmtESkZMUUQ4OUVFcE5UeEFtei1IS01PQnhnU0Rfa3pza09CbXVXTjdad2pyUk5tWXhVVFp0bkpGRFk3LXd0cXVKSXNCRmh3MTlYOVA2SV9tbUs4TEUxbzBjRlBySkpGQTh6U2JhWmFmVHVhS1JpdURBTTh3WWNGbVlncjg5bGx1V04tOWlTNHE2UDdkaVNXaXRqakd5RGdMYmhQVXpseFZ3ZzZuZFFVSnd0ZFNabDV4V2pWVHVOTUxWaTVITVZxY3FWV0dfUFhjX1MwQXVXUjlHeTBibmJyd01EcEdaU01GZGNlT0ZDcFB1VnVoazdURmxNa3BLVjJaUzhmdmt6YWF0dldkYTR5VndBN3FZQ0IwQnZqMVZxRzhOREN1OUp2a3JiZWJZS3dBOWRrVWtWREgyaWJNbmxIelNXMkJObjRUWnJlNWFoNE1xUW9Geks1Um0ydWhkZC1kMTJGWF9YeTZpblNnN1Y3Y2t2cE5jQmJlNl9kVUhjUnlLY25yRElFbU1TZmUtQ3A0bnlpOFg5LWVvNHVockFLa2FDX0dEbUNLXy1zM1VmWmtUN1hmU2pCRzhya0pWTXFWQ3E5ZlVqaHlQSTVRS29meDRTZ2Z2ZVNndHdZMEFLQk04SHV3X0lmM3hJaFpyVTVtSV90VEpKRE9VOXh0TVROcURMS2dTWDczeGZwVlZCTUU5bXhuQm0temhqcTZvQzZhSDBKaFowNDhLZ2JnY3BHTVI3eEFmVlQ2ai12ci1qeVlGb1JvZlVyTEZNQ3lDWFRrZ1A2aEUxU1g1dDVNU3p1NmZoSlpUS3RTZG9iR2dtaWNrb1NhMmxJSUJBNm5FOG9hVndlZEFDLU1MOW9BVjg1alZXU3l5WjJjbnA1d0JMSS1fWXlHekpOSFdYZ0xDejRLdld4TXc4MTI2VXdTM3BLUzhMMEh0MU1kWFdHMHM5Y1FlRWNsYjdZTS0yY0NNaUwta0szS01FMkFTbUtfWGtiM3FuT080YkRCeml6TG5ocVllWHI2U2VVMVJYWUN2cm9Dd2poRHNtak9CMG1rNk5zZEdONDhlNVpkakp6SXB4UEZSM2xMWkpaa0k1RlVsSHJLUTVwbWJmWXl4RjNTN1FoaFRCYkpiQ2pPaVRZTVl1TDVuVW5mbFJMalljYmJxTTYzRUZKY3RIcTZSNnRDZUp3dkhWWlZmdjg1cFlrV3o0TnRjc2ZSaXFtZkZIa2N1dXozNUNuTjYzOVNvR0ZQZHRVdExxcGJXeVk0RVNZS3RDLU1YbVUxNU1BQ3laSnRqb3FzNVpYcHZlR2YzSTVIcks4UUFYY0FSSnpyYTh4Q3RNRVlWaVM3TVVybDBOcmdhNUdRY3JTZG9aMmNMVUJwclp6X0hXWkxjbW11YkIzcURCMm44bWRyWWtJTGYxb3hERUVISmthRm5pNUc3UFdVNUJzb3VkRkdmNnVFeFJ1a2hVaHhjNTdxMFJ2MGMyeHZJWWpoSmREV21LR3RBNXpRZnpZemhncUNoa2ZxWVptbUtIRk1kVllfVWExWHBfQjd0bEdfeVYyZmRBSjhTNEE1enlQaEkxYjltR1h2bjY4aVV3ZElmczZpVXBZaDd2em42d2xZOHcxVVpUWWtrQWJQWFZvUHdxV2xUMVZlM0dhUHRIRDQ3ZFR6eFJNWHZ0RVoxcFZyaGsweDlCU2NVUFdlM2NnaUstYXdGVHlCcTNIanZBbkhjME50SFVQc0N3c1UxZFg3dzhOYWw3SGVtVTNNRkFCVmJLSkZtanJUaUxicmVoZW5BMFIzMDF2Yi1SZzVsdkt1YmJOU24wbjZWUjc0eFNUMWNhTHFYdzBHSUZYemtFYWxtcjhYNV9hTjhyM2hsUE4zUHVodVo3dzJmTk52RFRzXzNMTFpuRFFrUDk5d2dudk9jdGdYbUNfMEpncW5GVzdvbElGZFdFSjB6WDBGdUpsVVNoY21kOWpEelZvMnlCVTJHcW04N0NURUpKdGZvLTl4RFZYdFhzVHNkRVZRUTE1RXd5MmJYWFdtYWd4UnI1SzRrajlZQ2hvYm94SWpTZ1dnVlJQWDhHZ3dUb0l5c1dXV3hPU0t2cWhXaXA0dEE2bjJienhfV2wtSzV1U2VZRmM1WHlXRTQxTU0xTlpMT0ZXcHJ3eDFaVEtTRUZlUkdWcUZHUzVuN0pjMWZzT0doT3RqWlM0WF9ydGVWdTlrX3J4dGFnNmpSVWxOMzhLU1c4M29aZ2ozd25zMGNQWjBiQjJDazVEWWFHeVpWQ2hOV2dOWG9uR1hkNTY5OFN1NHE4UWhKQjlWUklZdElGUGszSnZxbENlbmlsOGlhVTBsYjZXdENQUWUyU011aWZuN3JUaGpUNmdkdmtnc3ZLTWxYeFM4cGdndjJwcWh5dlhtVE5UUDhFdVB6eTZfczlYX0N1SGZfUTVncDhwdWNHX25MdllJdWttRk9qdU02enlTZmhLTjNJVndLLVY5ZGlDLXkwczc1T3FRWmw4MGVVM0pBeDZ4STZ1VlFFcjNISk5XeUplYk1Lb1JJekJVRi1pTTBmRjM2ZmVzdUJIUXEwZm44Y2hUNmwzejdtVFdySHBOVHdqbHJzdUk4SkJNU0hUc05XUXMxbFJiTzRBSllpQnp3SW8tM3NqNWV4R1ItamRpWlJUTGpHNW9NU19ZSGhFSzVSMVVBYzFWQmc1TWs1OXZpOmV5SnpkWEJ3YjNKMFgyUnZiV0ZwYmlJNkluZDNkeTV2ZW05dUxuSjFJaXdpY0hvaU9pSXhOaUo5&ver=json_43_form&mode=m"
+      }
+    },
+    {
+      "method": "idea_b_html",
+      "status": "failed",
+      "latency_ms": 535,
+      "products_found": 0,
+      "fields_completeness": {
+        "title": 0,
+        "price": 0,
+        "image": 0,
+        "url": 0,
+        "characteristics": 0
+      },
+      "products": [],
+      "http_status": 403,
+      "response_size": 106261,
+      "error": "antibot_challenge",
+      "notes": "Blocked by challenge page.",
+      "diagnostics": {}
+    },
+    {
+      "method": "idea_d_browser_xhr",
+      "status": "failed",
+      "latency_ms": 7057,
+      "products_found": 0,
+      "fields_completeness": {
+        "title": 0,
+        "price": 0,
+        "image": 0,
+        "url": 0,
+        "characteristics": 0
+      },
+      "products": [],
+      "http_status": 403,
+      "response_size": 100288,
+      "error": "access_denied",
+      "notes": "Browser never reached search JSON because top-level request was blocked.",
+      "diagnostics": {
+        "observed_urls": [
+          "https://www.ozon.ru/search/?text=%D1%84%D1%83%D1%82%D0%B1%D0%BE%D0%BB%D0%BA%D0%B0+%D0%BC%D1%83%D0%B6%D1%81%D0%BA%D0%B0%D1%8F+%D1%85%D0%BB%D0%BE%D0%BF%D0%BE%D0%BA",
+          "https://www.ozon.ru/search/?text=%D1%84%D1%83%D1%82%D0%B1%D0%BE%D0%BB%D0%BA%D0%B0+%D0%BC%D1%83%D0%B6%D1%81%D0%BA%D0%B0%D1%8F+%D1%85%D0%BB%D0%BE%D0%BF%D0%BE%D0%BA&__rr=1"
+        ],
+        "title": "Доступ ограничен"
+      }
+    }
+  ],
+  "blocked_reason": "api_challenge",
+  "latency_ms": 13363
+}

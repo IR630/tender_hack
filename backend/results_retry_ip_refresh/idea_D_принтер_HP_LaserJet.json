@@ -1,0 +1,24 @@
+{
+  "idea": "D",
+  "query": "принтер HP LaserJet",
+  "status": "failed",
+  "products_found": 0,
+  "fields_completeness": {
+    "title": 0,
+    "price": 0,
+    "image": 0,
+    "url": 0,
+    "characteristics": 0
+  },
+  "latency_ms": 6286,
+  "error": "access_denied",
+  "notes": "Browser never reached search JSON because top-level request was blocked.",
+  "diagnostics": {
+    "http_status": 403,
+    "response_size": 100288,
+    "observed_urls": [
+      "https://www.ozon.ru/search/?text=%D0%BF%D1%80%D0%B8%D0%BD%D1%82%D0%B5%D1%80+HP+LaserJet"
+    ],
+    "title": "Доступ ограничен"
+  }
+}

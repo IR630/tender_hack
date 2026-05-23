@@ -1,0 +1,74 @@
+{
+  "query": "принтер HP LaserJet",
+  "status": "blocked",
+  "method_used": null,
+  "products": [],
+  "attempts": [
+    {
+      "method": "idea_e_direct_composer",
+      "status": "failed",
+      "latency_ms": 464,
+      "products_found": 0,
+      "fields_completeness": {
+        "title": 0,
+        "price": 0,
+        "image": 0,
+        "url": 0,
+        "characteristics": 0
+      },
+      "products": [],
+      "http_status": 403,
+      "response_size": 5378,
+      "error": "api_challenge",
+      "notes": "composer-api is challenge-protected from current IP.",
+      "diagnostics": {
+        "challenge_url": "https://api.ozon.ru/challenge.html?challenge=JgcNDMsZmFiX2NobGdfMjAyNjA1MjIyMTI1MjNfMDFLUzhTODkwVFRaSE5NODI3N0dSRTNURTMsc2M6dGF1dzIxTjduT3liWDlWdzZZeTVEdzpYeWNna29LdjNfcGloMzBfa09ScUduWkc3UGp0bEY0dEJvTjlLVUYzaDFFZXNEVWE1Z3lRSnIwVWxUTFltSHh6emkyWmJ1Y3BKQVFlVVhxelZzNkJsS2dmd29hUHRDVEV3RnBrajlsMy1oRHhHVmlRc1hobXZmSEU2UmNSRFZobHZRRWdaWmdLQnVzZUV0bXhncjRTWENPWjcyZnhYaXlyU0FYanY4YUZ6b3AwaFdLZk9rZzZ6cmZ3TTNUUzBXZHFYTFVQNElHbjFlXzZDNHdhQ0huU1NoWk5kZGhZSFhoMzlWazVPWWkyWHJnTVI2ckFtNy01NkZMZ2I2cW5nNnFNcEdib2V6Z1pQLWFDY005X19UTTJJWUtqbFViZEtSR3Qyd3lNQmxsSXpVMlBKOXNRYWxUbDVSNnZrLWs3NHBreG1ULU0wdHcxYk1YRmF6aFBGTVRKeDRGZlMzb21QX1g1MVhUTEJBbnlXY3B3aWw1X1ZIYnZSd1VXTGE1RDNkTTlQdkRsVUJJTUlDLUptbFowUm13dXNIcGk2aXhjb1phczNScmFjcmY1cXl2RGFrNFdscU9paldNbFc0S2xiRHQ3MVZFQjdPR2JOcjFmd0JwWEw5bi1jNjZfdFN2S2g0WjMzRjFNSGYwdkotdUJYSFRHclJvMW04UU1WNm5sMktTOHdyeGJ1amtneUJHTGE3VGxMYzlnNllPVkMtSTUyaS1WenJqMDJNck9vOVFQUkc5X1FnRWJrWkVoZ1dnalM5eU94ckdKUGJtSmlzeWtIaVdsWXVYamd1OEFrbXlQZy1UeHZBQ0dNZE9KcFRQQXNmVGxNSGc0cUt4aEwwdW8yblQ2Tm1rdjBzWkVDOUFYVF9tR3gwU2tPQ0ZjLWlUQlJ6TkFRY1RLdVotY1NucFQwLWQyWnpFcmxwMWpmcHRZVHhWbGcxeDNXMnc1RnhTZHpkNU5zbTk0N3JWV1pKa2xYSWlScnJZaU9pMHMyUTgxT3lFLTY1Sjg4UWJNTEdiYkk4TjdMRXJuQnUzR2VDTkxSdTNTU0tjM0VyVXhZV0FfWlpqdHI3TC1LTklmVUhPTTg4WGpTb1BMdkZ3UUNucFR2UWNnUGxUd3RVVnlpWmpXd1NuNkdDTUdpN2ZSX2dRM1BVcmxNRWR2alljV1dHaEFBY0xZODQxWGtwLThrWXd5R2JtT1J3VHVHdGxneC1TU19ORWpKYi10YmFVdE44QTVwUjNFVWpxWUJMOFA2WEVyUV9EbUJEbzV0OTkxUFowVU5iMEowNEtKTUhQcnkwd2JDVmdfQVdUZ0Q1YUx2dmtCRkFnZzJ0ZGp0YXhGS3dPd0FwVHJvblIxMEtzMElJY1E5MThjZ3FZdlRnaWU3blhPV2pON2FDcUkwY2Q1ZVdGZnRsY2ZyM0FVRVVFTXJxU0RISjJNREQ2cFdxQi05WDZPXzgxRW5jWGw3dkFHNk5RS0tmczUxM05UUUl2RndBaVVuNl9JZUs0Z0pHUjl0OHdabUN1aC1VU0pzZ05TdGxYaTdvUzVEWkFmcDhLaVY3RnQ3R0tqektYa0dtcWdoMThsNlMwR3VqemhESWFETmp2Mnd2T3VYUWRIdEgzUFRhUVZXaGFlTTN2ZkxBTGV2LW5JblRseGFkMlNMOEVxbHRaVG9SVGpjUUE1ckJCeVdvV1NPTktjOE04Ml9IbERFVTlLZXZsVjBFdGhqTFplcElXdjBiaEdCaGhYeXdHZk5hSGk4a2tYZTBSRHdEbGl6RWVlUk5WbFZVbU1LcEFidFE5b2pWSFpwZ0NpNlNMLWI3YXZrS3E4ZnlrSTZXUmZXWlpYRFFha1NkOW1TVWowRUNpRkYwWkVINDhCUmg2Um5BUEpaYWltWndtZmJkWnNhZlZ0TTcxZGh4TDhRd2xUUmpGMi1zWUNneGVsOWFCSW5NNHhQWkRGaWt6LURwLTVfaXRMemEyVWd6a1VtR2pHemo2Z2VfTWp1OWdXWHpSZUNRNklkQ3pZSHFaZlpQMElFYzVPeDA0cndmQ016blpKQlMwM2J1X2d2VExUekVvbWJLc3dma2cwUGNVclphRkpYbUg3SGRoRWRlaDJlYXNBVkkzQ2VLWDlSSk56SjVUck5lWjV5MlpvaUhFanJZQklSZXdQX2IyNDFEejg4QkEtbmtJMnlrVUxGcUlkTTJQR1F0NzMzZ01aeU1IVlNxbkZjRUd4SkRmeXZtSnluRVY0Y2w0SkR4b3RMLWpCZV9NUkd3MDd2OVc3alhEZHFFZDVjbGY1b3BZa2RfZjJzMW0yRXJEaE4yUi0tSUdpcC1IRzRadkROc3JzSzdiYW8tUW94TFkxbENKS3lqeFNTclNwTUdGS0xSSnFYNllmNkwySU1mS1dlSDF2U2NGdi16VEpHVW5Zcl8xZDN6MU9JcEdCOFFEc1ZRYk5oS0gzNFBjbFZ4dTV0QWtZZDhPZnpaSUZib3FpWXBEWFFhMndBLS1JVUo1c2l2QkhiMmh2bWRPMW5sazJSd0s0YkNmcU13TUw5TGdoMUZodmxtUTczZWdFYjgwbWdkcGZ6Wkw3UEQyZDBkV2NjdTc4aHI3VFFZREdZT1dwdUlad050RDR0NGQzUlFQQzA0M1ZQNVFwV2o2UUl2OThfTXlPbVFUbll4Y3N5RnlnZ18xdGZhTUxxWnlSRXlQWVJKSmFoTlZMU1BncnJPRHlpcXl0ekpYQXlrYWtaLWlXOXFoTFRPb0owRGhDRDdDYURJaGlXTEd6Y1oxVEtPdHJfbFp3Wmp2Tml0TzJlYU1zTzRybWlsazR1czlmS05UNHhXS1VnbWwzSlpNc0xXUEdRbG1DWld0WDQ5Z0JoQkNJOFNRaERNQzlIa2FnZlRUS2JKeUN3M0stdDJnN05tMkRkT2hQMlRaOEluSXpMRUUxUUYtUmZiU0R4YzdPTG00dWl3NnV5SmlnN0lIbFNIalZPVTRrOWhWTzdtWnMtWWZGMmZTT05mc1FxcVRsZzNfcVIwR3diUGpzbWpQYVFZNUsxeHFFRjdCcFFCeUliWk13ZUZ3aS1XNlMwUnpfbE1iNDlHakQ3SEZiVWdjdmZQN2JsR2haVXp3NHlkTDdIMTZiMEI3azFGWWRQQkY5YTlCdTRrMEdJWV93UG5SQTFMeGliMmZnazFreDZRdjBZS3RvbnhWRjBiNk5vU0ZtN3BnalpZQUdrb2VVNFpTSWJha1A2WGUtV3J3dnhZczdXbDlzY21nWUhaVnBTV1NoRC00NlVUSUZUblBJaXc4R29Ub1RTNndUaHRYUGg1S2NDMER6YjdEM2VBUi1UbURGQUoyYTdCQi1hdmcwRjJYcGkzR1Z3SDhPU3cycmItQjdpVUJIeU9TM0Ztd2Zfb1Jzd1VvREpmc0JqeDRzeWJqNkRfZXhWLWxXVXE4bkxPNlo1OFpSbjEtcE5jbktKbHVTLTVlLWFQcGdfTG9RQXNsOTJ2a3JFb3pKb1ByUnlGLVB0eHZUR1hKanE3NURQMHRsQThjVUU2WDV5TlRxMkZtV1F0cVRPNWNiU2tQeVpDWW5kR1ZZNlJZNjVvVlozS2ludi0tdDdya2pjbFZWWXVKNGpodDE3dHFQQk1wMEZ2d1hVYVJPMHJNbVdWVXhtcHFfdU5LNXgzVlRfUllUbFcyZHJPT2xzR0lXNFc3SmRvNWdlQlZWZ3htV0xSX0JFR25IOEttaUFsYU9kOFk5WkNTZG9zNkZjTjhLekRXRjRMalBuSXNnQmxaRDlNbllzRjRxX2xnYnM2Um52Y3o4X3JtRmItMDMxWmZHWWhZbUlzMGxraThZWWgzWjZPbzZ0SWtxWURtcWRSOFpON0ZnWm1scGgyTGxBUkROVEE4VnpBbGU2aG81N3BaOFNFYXJIcVF2VjBULWt3eDRqVTF4VHYwYm42TVlTamlPQWVoUDY5Y25xam5ySzVmbW1BVUFmcFNsNlBZOGVfVVlJU2JYNVJ4eUNYTGdPMWV3bEozbEVlaXg5ZGpKS0J3NGxJLWFvcmtrZDFzYmZiVlRHTGhiUFZhQUJBN3h2aTBtQ2ZKTERiekdmSGJXX0RxWU00dEJrZm1xX1RkX0pRbWVraWJ4U3B4eUtBQXNjVVl1S3NJNDF5N19sRDhWWWVNc1p2Vm5HZXFJRUFScXd1MUlPdHdxT2tZMmJSV29ady03d3ItcXJTenlRZW5pWXhXRFRGelJPM3YtZnJ1WXdTVEpxYmRralhnSzVJNXpDNDVtdHhBWmZMUW9vR1Y1SXVQRHhjaGdLSnpfQVNQNXNNN3J0M21PTm1uQ3djSUZDTmVEMnlaTWtVcG9SMlF5cnpfdXRRUWFnZjl5b0o4V0w5VWtvVzBIektJNkJwY2liUG9YaXA0c2lwWlJ1WTluaUdHYW80X2NDZzdCSk5acms5VVlSeUhoNzhTY0RzQ1B6bkxnS0VOWGlRM0c1bkk3c2ZYd0VyVXZzMlFHX3UxZGQxb0dlMmtvTGRBRjlCYUczeDNCTEx1cGRsdjJpdng2NUcyXzpleUp6ZFhCd2IzSjBYMlJ2YldGcGJpSTZJbmQzZHk1dmVtOXVMbkoxSWl3aWNIb2lPaUl4TmlKOQ==&ver=json_43_form&mode=m"
+      }
+    },
+    {
+      "method": "idea_b_html",
+      "status": "failed",
+      "latency_ms": 322,
+      "products_found": 0,
+      "fields_completeness": {
+        "title": 0,
+        "price": 0,
+        "image": 0,
+        "url": 0,
+        "characteristics": 0
+      },
+      "products": [],
+      "http_status": 403,
+      "response_size": 106205,
+      "error": "antibot_challenge",
+      "notes": "Blocked by challenge page.",
+      "diagnostics": {}
+    },
+    {
+      "method": "idea_d_browser_xhr",
+      "status": "failed",
+      "latency_ms": 5761,
+      "products_found": 0,
+      "fields_completeness": {
+        "title": 0,
+        "price": 0,
+        "image": 0,
+        "url": 0,
+        "characteristics": 0
+      },
+      "products": [],
+      "http_status": 403,
+      "response_size": 100288,
+      "error": "access_denied",
+      "notes": "Browser never reached search JSON because top-level request was blocked.",
+      "diagnostics": {
+        "observed_urls": [
+          "https://www.ozon.ru/search/?text=%D0%BF%D1%80%D0%B8%D0%BD%D1%82%D0%B5%D1%80+HP+LaserJet"
+        ],
+        "title": "Доступ ограничен"
+      }
+    }
+  ],
+  "blocked_reason": "api_challenge",
+  "latency_ms": 12031
+}

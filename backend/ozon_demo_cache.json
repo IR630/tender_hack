@@ -1,0 +1,56 @@
+{
+  "cached_at": "2026-05-22T22:00:00Z",
+  "products": [
+    {
+      "title": "Футболка мужская хлопок базовая",
+      "price": 1299,
+      "image_url": "https://ir.ozone.ru/s3/multimedia-demo-1/c1000/tshirt-1.jpg",
+      "product_url": "https://www.ozon.ru/product/futbolka-muzhskaya-hlopok-1001/",
+      "characteristics": {
+        "Бренд": "Demo Wear",
+        "Материал": "Хлопок",
+        "Размер": "L"
+      },
+      "source": "ozon",
+      "source_domain": "ozon.ru",
+      "rating": 4.8,
+      "reviews_count": 124,
+      "relevance_score": 0.94,
+      "confidence": 0.85
+    },
+    {
+      "title": "Футболка мужская хлопок oversize",
+      "price": 1490,
+      "image_url": "https://ir.ozone.ru/s3/multimedia-demo-1/c1000/tshirt-2.jpg",
+      "product_url": "https://www.ozon.ru/product/futbolka-muzhskaya-hlopok-1002/",
+      "characteristics": {
+        "Бренд": "Urban Demo",
+        "Материал": "100% хлопок",
+        "Цвет": "Белый"
+      },
+      "source": "ozon",
+      "source_domain": "ozon.ru",
+      "rating": 4.7,
+      "reviews_count": 88,
+      "relevance_score": 0.9,
+      "confidence": 0.83
+    },
+    {
+      "title": "Футболка мужская хлопок premium",
+      "price": 1899,
+      "image_url": "https://ir.ozone.ru/s3/multimedia-demo-1/c1000/tshirt-3.jpg",
+      "product_url": "https://www.ozon.ru/product/futbolka-muzhskaya-hlopok-1003/",
+      "characteristics": {
+        "Бренд": "Premium Demo",
+        "Материал": "Хлопок пенье",
+        "Посадка": "Прямая"
+      },
+      "source": "ozon",
+      "source_domain": "ozon.ru",
+      "rating": 4.9,
+      "reviews_count": 56,
+      "relevance_score": 0.88,
+      "confidence": 0.82
+    }
+  ]
+}

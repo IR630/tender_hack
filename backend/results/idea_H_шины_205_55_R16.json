@@ -1,0 +1,20 @@
+{
+  "idea": "H",
+  "query": "шины 205/55 R16",
+  "status": "failed",
+  "products_found": 0,
+  "fields_completeness": {
+    "title": 0,
+    "price": 0,
+    "image": 0,
+    "url": 0,
+    "characteristics": 0
+  },
+  "latency_ms": 297,
+  "error": "antibot_challenge",
+  "notes": "Mobile user-agent still receives antibot challenge.",
+  "diagnostics": {
+    "http_status": 403,
+    "response_size": 106449
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "query": "летние шины 195/65 R15",
+  "status": "blocked",
+  "method_used": null,
+  "products": [],
+  "attempts": [
+    {
+      "method": "idea_e_direct_composer",
+      "status": "failed",
+      "latency_ms": 262,
+      "products_found": 0,
+      "fields_completeness": {
+        "title": 0,
+        "price": 0,
+        "image": 0,
+        "url": 0,
+        "characteristics": 0
+      },
+      "products": [],
+      "http_status": 403,
+      "response_size": 5378,
+      "error": "api_challenge",
+      "notes": "composer-api is challenge-protected from current IP.",
+      "diagnostics": {
+        "challenge_url": "https://api.ozon.ru/challenge.html?challenge=4hgNDMsZmFiX2NobGdfMjAyNjA1MjIyMTI1NDZfMDFLUzhTOFpHS05TR1dUNUhQM0ZBS1MzMVgsc2M6QXUzR1AtdEM2cG1vSkt1TFI3aTBNQTpVZTVrUExNbEw0eUVnQlhiTU4yOVA2VzVUX2tmbEdNeWVpNUR5Zi1BbjNKX1hYbzVySXBUX012bVZFdTl5U1hUNEh4UGlUanJZekU2bWtGd0N0T3lXT01neVIyYmlheUhXdHR1bGtmYTRPalNxOFBxR3ZGTWFFWUVuWWk0d1JXUzZVSlFpaUJONnpPb2lxUmI2anV5OXNkbEtFNWZKQWh1Yy16WXI2WjJhLWJSNV9CaHNvd3VkNURsRWQ0OFZxWnp3a3hSLU9uV3pqdk5mSmFWWDBIMk1laGxXVkJtT2V0TnczOUk0QUh2MmN6c2taQ0JiZzRBSjhjeW5hVzBLclNmMWFFc2xRaWVsbnZEdENCNzVYZllvRURIMnFmSmd6MlN6eTNsN2hEV1otNWtPQWpTMWF1dUNzMDdjUzl3Z1FnTGwtY2hZc2tMb29xdmdWUnBzUHJERjRiSmZRcllQbVAyMWNScy12ZXZHc2VnenNnbkVTY2h4enBiVkxnd28xYVVwMzJkU2ZydjRBemtOMlhuN3RJajBiVTFfQkZya0tfSXVwOWtSVWlhbnBzNVd1S01lZGF3ejRURWFEa0NxM1hZdnJMNG5HdEJ0RjF5dVMxeG1EN2pRdS1HZVdycmJZdDBxalhLNHJaZnFvWDVsVnZ0VkVYb3FTdEhYcFBGQTdDNzFiZ1ZwU1l3cFczU2tpRDVUa3hpOFZscHVidmFfOGZkakMwQmxwdHZ6Q19FZFJzb1ZfOXNXUTl0d1IxMUJjdXVabjRRSlpERE1iS3pyMUp3Q2hndERzUjhqdFVnVG9TdFVMTl93bEtGOFFoQlpFd0JXYnVnNWdqQ08xbkUwNHlkQ0VldVk1d2xKOFVOZlUyMVZTVTRJbXl4c3VxZkRzczdHY3MtYzRBQlhyLWNIdUxwZ2dqQ21iOV85TE1MUXpWZmhRbkRvYTVSd0ZNMHlJeE1HdzhTVWJsOG5GVEEzbHN1Y29VQlcxaFJ4OWtpSEVNQzd2bXl6cEhDWDZQLTNrdVM4X0k1UmdubDFzMjAwaUlGWDNiRkdURkx5Si0zNFNLT2pmcjF5aWJyVUNXSFN5Ym9oWFhPbFVIRjZ5dW5QeWV3dWU5clJiNWNudFVnb2ZzM2RNcnJ3amRUNHo4VWFkTkJXWGdaNXJDRXZ6MHUyeG5zODUxemplbkxzdkhUVGNrOHJfMHg3M21ueE1BV1JqamhxNXN2M3R1TURESExDTTlvdmRMUG5QeWF5UTRZS3FpV2FpdVpyUjNEUU1RbzY4d1pWbU9UbFF1OEw5MWIxLWpURGhaazJaV3ZCOXo3OWg3dFZJUV9nQnpwd29zN1gteGljbFhET2dCN2xySWpBLXF2R1lFWmRsNy1VR0ROb3pBV3ZDRGdmWlotLU4xMEhZUWZiS2lVU1NIbXBsZmZtOUNCVXRQWlJ5aXJhU181cUxNRXk4MVFGZ29qM256WlFzYkRaUmZQQ3JiZFJ1NHVPYUE0SHdxazAtcUx3Qk91aWZXVWlXaTBzVlEya21haTM2Q1BjLTcwQXJxSHJEMHUtLTVUNHJJaDJHcnZDVjhGRjlJN1A3cmpWelJpTjdIaEsweDRXY2REa3YwZGhGNmZmUFJHMWF4UkRkWFh0MUtVeUxUX1pMUWIxUzBEeEZRU2RBVGRhaXlCaGNNeGNONnc1WGVNQjU1endtT0tuNzhwZGpFNXNLVzhCZHVsMVA5OE15X0J5Rl9mazRhcHY5RW1zMHRremtTWTRoVTN1MVQxeFh4bEpDbUZ5Qm9HZUpNbGNZaVNEbDE3alMtd1M5NDRnRVhpS0o0ODEzVFpZWllpamRnZmIzX1BnUFEyek40RU5ibDZJTUFIZGJtZEM1R09pV0JsX1dBcVBSUDJMS0lJRUhRYnNka1M4aHR3SE9BUGQ2NUJlSHc0cWN2UjhHTVc5X1dpTFdrVEI0NzM0bng4OE5ScmZaTVlxS2hzQ1JWX0VjbFEzT2pkWXY5UkcwY3Vra0FjbzY1WlpydEVYek5iUk1JdVpzY3dtT2tHZDBWZFJPWkdXMUVCd3JsRF82RXpuUF9pbXpMbXJZN3diNGhRNUV3Q1haX3lYNzhmSkFlcnZiZ3ByV1FJVU1HZFlBZ0dYTkgzWTlQTU9JM3BxY2ZEWmRpc2hFeWs3Zmx2MV9KbThnQm1wSnhaaDZLRVBxemNwb21pc0tIQURubjEzTG02TFluMWxIdTAxT2RJT0FsM1R0TXRIUzdjY3U2TWRkWG9aWktsWno4R3hBLUIzd3lHX3pZWDZVQzlFWEtWMGtOTU83eWNGOW4teElDUVRRQVUta29oSTlkMG9ZSWlfWlV4S0x1UFB1REhRckFGZWhFOUtJdmpWRURTeVc5R1BoTWxOVWtfUFdFRHhlbkFXREpTSWFLVjNjWGxSQkRUelgtMmF6Q3VyUzdmeFFzSXZIT1l4ek9jUmIySkIyZk1mTkFYV1E5MVJUdUNtN0VUeGtGVHNaRUVMQjRtSm96bjRDUFphQXZkWU01ZTFCSm5XSzJ3dnZPbzFCc1d5TTFUamRtN0NXVTZiVU1La3VvbWJFYnh5U2tuYzE0R0h4ZGFlQmh3TU9QZXhyM1BYRXNrMGc2aVQ0UHdNcGhkdERVVVdqMzJGa1BIVjQtbGZoTTd3Q2kzYWxfUWY4WjBMdmNDVUJNaTFLc1E3LTBHVklYMkQ3dmRGSU1ZelhnbXNPZ1g2WEJBbFUtYzZqSVlQa05ENmhuUVVvQW93SzNwRXZNS2lOeTlDSElaNWpqdUREdlpITW00czVGMUtUV1VrMUVTSmJpWS05aWxPOVA3d3hxZVdSczJWNjFsNUpJMlo1SktFMkhKeGZnbUEzdVEyM2hwTHJxVlZHLWVWUVEyWFdzZTNTaTUwY2FiZzF6dHY3X3NWWFg5RnI1aXVaMjZpWnYtdXB2ZHZub003TWVXcEpPN1ZKQVQ3NGxEQ1AwX1V0Vjkxd3F3ZXhzeDJ0WWdjZGxJZ0VrQzZQWUZIUkVvTnRGa0dYZ1FtNzhmQk1hU1NrUTF2bG4weHNMdEc2RmJFMW01T3BmRkw1dFgyTC1lZG9TWHhKXzQxbmZOcjVUS1c3TGpVVlY2WS1UYlZSMmZpd2FsVFNVMGtaazIwZ2t4U2RORzZWYTBUbDVJUmZmUWdqaWxPel9vaUpmaFF2VWRockhhbDRLQkZGYlZqY0xSbS1hY3NZZTRvT3Z5a1A5dDlncDlnaVhnVTFSZEdpUldGckpNRUFLeGtlWjlwb0JRMDZabFY1a1ZleTNrYWhwZGZaV2tWM1BfY255U1hpSHF3SFdXenh5SkRBNWYwWHctMVpWajVlRkNsc2E2eTlyamlrc25iNENfdDRUZ0tVWkF0UHVPcXdMN0M1LXV1bENiTlVYVmYyVlNIMEY3MEM2MHpQLUNfMkhFS1R1XzIyQnA2R0RnZzVhb3gtV0Q4S2VxQ00tWmVCQzJGXzllVkd2WVZwOWJQSFNvajFGZzBEVkU5MnR1OWpVeWp3SW0wY1RhNy1LWFZuTjFPUHZ4eGt2V0VRd0RNN3VUX3ZnZlEtc2o4V0hUVERoOERMaGl4RXlkbkVUUTY0bmVQakRQLTZfZVZrVV9ob1N4clVpMWtNZTVwOGRSUnVnRVhUcnlIWF92dFFpdjNOTXZ0dWtfYmxVSTJsdEItWEEtTmVtVGRCRE1sWXYtaDVucDhBa1Y2TGNrMlNUZXc3MjlSUEtfanlXT0VjZjFEZXF1Z1gyUUVXajZQWVpULWpnQzFxRGFOUWlzN0VqSlJYWGR6YzJ3NkljX0o0dmx3akVqR0hzMWUyTUFRdXJNbUZfZlpfSzRlWC1VSm05bnJzdkF4VVV1OTVsajlGeEN3WW1QY3UzaG5FRUJ4RzlIblR4Tmc5M3RrcTlUaWc0Q3lQRlQ0SlJKMk5VQzNxRW1EbXVNd2N2eUV5cTRDS1dPUzlSTThIelA0Z3Jsd2xkQWZiQVdmVHV0TjlxbnhoUkowS3YwMkRnNHhKSHE3X01NNGhvbUszV09PcXBjQTJEaERraWI1Tk9fY2FfbF9MdTVEV0pOUjhLQjh3OTV1ZE9hVHVPd2JFYkVzOGEyLXN2dE1QbGZjMnp1ZUdYd3BnRC1mWmxzQ0Jac3FwNkNZZjVsZ1B6eHBjbGhKVjhBQmhucnpYZ3NTd2ZnZnd5eHpnQk5XaW53anFneTdoZ3NBdDVjOU5UYmppQ190MmxKS1kyNVYxbUNwX2ZmS1VGZGdzRDVRMmM0b2ZjeFJTR2xROHRzV3V6WW5UYmV5RG5VendJR01EV3hZdVNiTnhJVGxvd3N3V3FyR1RDeUxxYkJGdUNRRFg2dUp5d2JOX0RUNzFDYlBITjk4anoyVWpTU1czeXY3NlRKNGUyWW5RdElrMFJkajJrR2hzdDNhZk16cVl3ZkFENWtCbE9LQjdFN2R4b0lMOE9laThPUXlJU3FISGc0VEtYWVdiQ01tZzNQcG95SmFMZXZ5MTJYaEpfVjZtRHdFamZLOTJaejpleUp6ZFhCd2IzSjBYMlJ2YldGcGJpSTZJbmQzZHk1dmVtOXVMbkoxSWl3aWNIb2lPaUl4TmlKOQ==&ver=json_43_form&mode=m"
+      }
+    },
+    {
+      "method": "idea_b_html",
+      "status": "failed",
+      "latency_ms": 447,
+      "products_found": 0,
+      "fields_completeness": {
+        "title": 0,
+        "price": 0,
+        "image": 0,
+        "url": 0,
+        "characteristics": 0
+      },
+      "products": [],
+      "http_status": 403,
+      "response_size": 106149,
+      "error": "antibot_challenge",
+      "notes": "Blocked by challenge page.",
+      "diagnostics": {}
+    },
+    {
+      "method": "idea_d_browser_xhr",
+      "status": "failed",
+      "latency_ms": 5773,
+      "products_found": 0,
+      "fields_completeness": {
+        "title": 0,
+        "price": 0,
+        "image": 0,
+        "url": 0,
+        "characteristics": 0
+      },
+      "products": [],
+      "http_status": 403,
+      "response_size": 100288,
+      "error": "access_denied",
+      "notes": "Browser never reached search JSON because top-level request was blocked.",
+      "diagnostics": {
+        "observed_urls": [
+          "https://www.ozon.ru/search/?text=%D0%BB%D0%B5%D1%82%D0%BD%D0%B8%D0%B5+%D1%88%D0%B8%D0%BD%D1%8B+195%2F65+R15"
+        ],
+        "title": "Доступ ограничен"
+      }
+    }
+  ],
+  "blocked_reason": "api_challenge",
+  "latency_ms": 11003
+}

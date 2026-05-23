@@ -1,0 +1,47 @@
+{
+  "idea": "F",
+  "query": "футболка мужская хлопок",
+  "status": "failed",
+  "products_found": 0,
+  "fields_completeness": {
+    "title": 0,
+    "price": 0,
+    "image": 0,
+    "url": 0,
+    "characteristics": 0
+  },
+  "latency_ms": 11191,
+  "error": "antibot_challenge",
+  "notes": "Warm browser session, then reuse cookies in curl_cffi.",
+  "diagnostics": {
+    "http_status": 403,
+    "response_size": 100288,
+    "cookies": [
+      "__Secure-ETC",
+      "abt_data"
+    ],
+    "probes": [
+      {
+        "try": 1,
+        "status": 403,
+        "latency_ms": 580,
+        "response_size": 106121,
+        "blocked": "antibot_challenge"
+      },
+      {
+        "try": 2,
+        "status": 403,
+        "latency_ms": 222,
+        "response_size": 106065,
+        "blocked": "antibot_challenge"
+      },
+      {
+        "try": 3,
+        "status": 403,
+        "latency_ms": 229,
+        "response_size": 106177,
+        "blocked": "antibot_challenge"
+      }
+    ]
+  }
+}

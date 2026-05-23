@@ -1,0 +1,24 @@
+{
+  "idea": "D",
+  "query": "шины 205/55 R16",
+  "status": "failed",
+  "products_found": 0,
+  "fields_completeness": {
+    "title": 0,
+    "price": 0,
+    "image": 0,
+    "url": 0,
+    "characteristics": 0
+  },
+  "latency_ms": 5758,
+  "error": "access_denied",
+  "notes": "Browser never reached search JSON because top-level request was blocked.",
+  "diagnostics": {
+    "http_status": 403,
+    "response_size": 100288,
+    "observed_urls": [
+      "https://www.ozon.ru/search/?text=%D1%88%D0%B8%D0%BD%D1%8B+205%2F55+R16"
+    ],
+    "title": "Доступ ограничен"
+  }
+}

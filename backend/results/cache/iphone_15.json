@@ -1,0 +1,75 @@
+{
+  "query": "iphone 15",
+  "status": "blocked",
+  "method_used": null,
+  "products": [],
+  "attempts": [
+    {
+      "method": "idea_e_direct_composer",
+      "status": "failed",
+      "latency_ms": 288,
+      "products_found": 0,
+      "fields_completeness": {
+        "title": 0,
+        "price": 0,
+        "image": 0,
+        "url": 0,
+        "characteristics": 0
+      },
+      "products": [],
+      "http_status": 403,
+      "response_size": 5290,
+      "error": "api_challenge",
+      "notes": "composer-api is challenge-protected from current IP.",
+      "diagnostics": {
+        "challenge_url": "https://api.ozon.ru/challenge.html?challenge=Y9HNDMsZmFiX2NobGdfMjAyNjA1MjIyMTM0MDdfMDFLUzhTUjhFUzg5SE4yREVEMVNLN1dNRVAsc2M6UHdPemhVWFpJNnZoLVBWZTNYbi1Xdzo0MHBhRUhoaTBTbXJ2dGRYMkxEVFdzUE1hMVBlS05pWDJyOWJmMGh1dzJFaExxN1hBS3ctY2ZvbjBTeGVxT29NYnVIVjFpWVRvYmkyc21pcjBPaS1qUURTM054VE82YjdQT0Y4YnFYUm1tSDZwX1BXd0NCTXF3Zl8xT3BWUC10bEw3SVJlNVhleXFCNmYxSnRZa0NGZWJpSXJOcFoteGRlQldocmY3V3U5TDBjbzNCRXNqVmEyd2hTTEtGTUo0b0JQb1BJak5lTFJCZkVBUF9xZUJBR3ZfTDNKVFBLUTZmSm4wOWRzVnpqMUpKanF4bjFiZGRvR01ZN0hxcThBdkdvTDBkV3ZNLV81ZnhIT1RNV2NXTUhidTJaank0QjV0VnBPVWdlaEFUZ3AxdmdXeHFfb24tR05vc0RzUTdFbVdjbWlYTU5kTHhTbWFMTElkVlZpNlhndlVIdzRFQVZVcVFfSlRMQUNjZ1BqaHE2UUpzQVU3TmdObm1KdHJzbklXcGVpVFBWNy1vZnh4U1otbXB0TFh2cHZiTGYzN19MOVl1SGc2VEFULU81a2hWckZuYW16T1JRZXVEV1l5U2ptZVRPRGN4VmMtUzc0X0NlX3d6ekpiNldzbFhqdGdEQU96OW5rWTlfZmczaWhweFhHQkR3d1I3a0ZMM1VLeDNWWF9CcDBDeWJvVDVpWWRBcHRuMkxqWWtieHN6eVJhN1BpVTVWMENZeTlURDh3NzBaQkd6NWRNWko5SnJ6OGNRVkhPa19wS0tpQ1BOVGdMQXJaMmRuQWpycVplSVM1eFFHVm5CdEczTUJZUzAtVnpEOXpVZnJFTDhjYVhMVkFiN2NCOGFFaFpmMEJjQ0RnaFhGYlhTUkJwRm9OU3c0Z25fTnBpRzdzb05feHFtZXFQQkMzWHY4VlhHcGFZMGsyRGMxWUliS3VUOFJ2VVI0eml3QVd1YTd6NFlVSExGbDJSM0pheFFJWDVVZ3NLMFZwZjI4M0ZEcjJ1UEUwTVI1MjFNeXJwQ3NLeXcyeDhNZFl0SkpDQUVxU2N6WGdpVmhwejVVX0s2RGRqVFd2ZWdHYXJZbTdmNjQ0TDJNODBkb1RKSTc4eUp1QmFwa2hPbV9KQVEyb3kxbUE4Y01mbWpNUlFxdzA1bnljT0dBU3N5VlI1QlFhci1BVEtLQ1hfTE9uOURHSmZsdzlxSTFORURvakVweTI2V0ZRVUJqQ2xyMVFCWUprUlpydHhDMkVGaHFqcmVrcHIxRWRITW9vM2VSRnliMk1VNm9lUGo4ZW5GbjU1TnNKaFA5OE5Bc2NQYm1penNTT3NyYldVX0wtd1dZYWtlcnZ4SXoyaWJyeG1EX0tKblZVcWhmTHc3eDhDbTBsVExkcjFUQS15TnlJeGl2MXY5b2FjZmw0RUluX3I4XzUzSVpKdU5wYWhHa1BNbEo3MWxreUdpeDdPRjJuYklGdGphSkRudDZBbEc1T19ZQ2RFVG5DR0ZQNk0zZUVuM2xjZ1N4NXd2S0IweTJjNEdVWU9CanJndnVKTXhIS3JPWm5JRzlFMTlVNVJTZ1d2T0NaZHVBOC1uZzQwZEE0b3dfZ1NUWVY2RmNWV1NsbmpnRVJaY3BwQXlWQ2twVmJheHNaZVBqR2Jza2g4LWxBX28zNzZLVVRUd2MtaXNIcEotX2g4QzBFa3YzWkt6eHoxbk5NRTlQTEhETXJiczJmTzQ4OEtFa1dsZEdLN3hsT0xkbDYtenB2QzRoSG9YVWlCQjhZUzk3Smx4WFc0V012YUdBMnlrOU5MQ1FYUmpEa3c3MlBmTGppdXZKTjBtbjVhcEJTRGoySkRpclk4ZEtBVGJRTmxpOV9GY3Ezb05lN3BMckg0QUkwZHlXVGg1NVRwU3hBV0hsdGhJbGVvbEN3M2lIeW9rT0VfVDZhc2xyWUF6U0NPX0Rnamo3RGxfcG5wLTJudDFoMmc0TlFiS2lZajNhLWdqaDdLM3JweXExekdBYXgxTFhjM211WUtuXzc1dEIwYno3MkR0ZEZ3SURCcmRtODNocjFORUljUV9kVWdIbDhHYklFNVZZUUZqVHc2T2JSX3pYanpnWE5peEUzTVl6NmtGT0pMVjRVZjlfQjVPVkZmUUUwamJEbWN1YmhUcGhzYklPVEYzVFM3a0V4WEw4UDhKRUZhQTRfUFI4Z2JJVHpndmlNcDlmcGlxZkV2V2xXV1hTQkhGWXpOQ014Tm1DYTFOOTl0ZzdhVTNWYkF3MnBhbGFGbFlqMURnVUxsbkJNbFFDTFl5N0pGQkhCVjBiWkJVVklNMnVvNnZ1N0hTZ0V1WnpCdmxKRmVMRFYxcDJCbHZMZnlZMjhDdWZBTUNHMC1JZ1V4clJIWGxVcVdZMHNMVTRvcnppYkh4WjRxOW5JNVl4SjI5UWxzTEVHcnpFVE1JbTlFSlBSTjgyb29nWEI2Nnd4Mzk3NFp4NlpxdUd0TEFjVmtlbUN5RDdsVkhvX2tSMkFoT2EzM3BQUzd6RXA4dDhabVZkQXo0TEd5elAwbGY3d0NadUQ1NXlUenFoaHFQNmVtZUhCMTE0MXhFa3EyMGh5UF9BYkZaYmdZdVZrZFYtS0ZNbHZFbDFIMFZkVjR2bVR0ZUFiRzR0UGxYUU5zOGhMRzUyWXlLVEZiZGNRcm1TSmg1SE5CVGVwZF90OHdQNl9GVWZoZkdfcHlrcDIwQ3FYeW85OXpNMmRKNWNzRlpYQmNtM21lZm44MTd0Y0M3MTVXQ0xlTGNSUy1kektxSGFac1BtTXFPT3kyZXh6SFI2S1dhbUtmak1yTndJMFpEWTFGN2ZrZkd0OVZkaVlYVHkwVW1Bd1RldGRVelQteWZTS3poZXdxS2NhS29XRXJ6eWwzdnQ2MUpZbnYyaU94YkpTY0lnYl9pNzVXS0lGa0YtZ250QmF6STZnOUhGTnl3a2l4R01qUTAwZE9MWGZidDhTNWh3Uk9KcXIzWnlLQ0Z2NHByeWZlc2NtQmRYbmREN0ppYkZjOG1adFNaMmhhZEdTVmItUEo5Sk1UMDVKS1oxWjEycnhUQWpzelN2bHpuTWZsRHcxX0daVUtvUll1dzI5S0hyWlNYQjFjcFgwNnNVa21WZ2h0TFZOeUNkdnB1elVTRjQ0a0g5Z2RvaXB5QlhmNzRxMUY5MFRrQnVEYmo2eVRHUk1UQkhxeDJfS2daLVVjYThxd3FQa3ZYV2U5VEE1N2hFT2M2VWF1SUFrYXlCeHBvSVdDRTBOMnlsX3c2bVM2YlU4WGhkZlhjODNuV0lTLUl4NjJiQU9QNVE1TTFtSVRZQ0t4ZXlYUTh1VV9FY3RUcURtTE9RWDNiLXlUUHgxSjR0VkFJWFAtWFRwdnVPbk5Gc1NKOFJHMGs1aWNObGlMaWNpZWZUeE1FT2E3b1lXMUcyZGRQLTBQWjZ2cEVkS0hpMEN3WndfNFdGbEwwVTJiNW51TTdXTjhSTzZZb0Ezci1mUnVmRmhDMFExVVp6Y0RReFRHa1VzcnBzTWRzejUzYkxJWkRwVnJuZndqQmRwVHBIWGhmLVlaX2tWNDFYM2lhXy1FR2pIQ3pSbmdaS0UzemhsTHM2T3lTOC1HbTdjWlNqeE5rU2V5Y2c3UzlrSHRONWdMVlZ1RUFFa3pZbmt5YTFncGUtaVcxZFpNSWxndVFseEdTVVpFX3AtX2tRR085MVF6UFNsWEhucnItSE02LWJHX1pyV1NJdUp4b01IMHQyX3hnaGZZY3Z4TzM1eTJTUThJUWZ1LUxNNUVXdUFNUmxkNzFFd2hTdHgzQzV5dEtGZWZLNThReEhUQjN2dzJVbGJPRWNkb29OV3gtRlhjMGFjZ3g2Wm5salh5Ylo1ZVUtaFZyV1BZd1F2ZWlzU3pOaFJFa2l6YS1ULUdPcGZlOGtKSnYxYng3dnBGMWpzd2t3VWtsbDcwc1JnakFMT0k3QnY3czYzdlRsOW9fUUNMMXlTU1BZM05tbWpVN1dMdjZ5WmktSGJXdUx4cFlXdkdQUjRkaHpBZjFmTkJ0cmQ1bFlQT0xUU2o1UVlPQ0xlVE5HYWdONzYteU1aNzc0WEUwSVYwa2Q0Rkt4aW9vbFNpRkFCdE5YV3BTMHN1Q3lxaEtCQmNrTzY2dVhZZGVtU0dabHJoZ0pyU2ZkQmY2VGNaX3FiNzR1Nl9OdmJQSHp6WDBZYW1VTi1wRmVmSkVwWm5NTk40ck1FaS05bm9FYnJIbWlEZkppRHV0YjYyVWFpOUZvYWY1Qm16Q2hScDh5aXd0ODRRb3NFZmcxSF8zcE9mYW1SRTlHUnN0ekIxSjZ4UExINFJOclQ3WWM0MFY3a2J1R0d1MDZjbXZrdXlSNlpXWWk0STRkZjJCRURrNloybTRQU0xWcXlnNkdMU3R6cTFvWHBvNUxELVcxai1kVmhnMEhTWTM3MXFTckR5Vjdnc3VnOmV5SnpkWEJ3YjNKMFgyUnZiV0ZwYmlJNkluZDNkeTV2ZW05dUxuSjFJaXdpY0hvaU9pSXhOaUo5&ver=json_43_form&mode=m"
+      }
+    },
+    {
+      "method": "idea_b_html",
+      "status": "failed",
+      "latency_ms": 941,
+      "products_found": 0,
+      "fields_completeness": {
+        "title": 0,
+        "price": 0,
+        "image": 0,
+        "url": 0,
+        "characteristics": 0
+      },
+      "products": [],
+      "http_status": 403,
+      "response_size": 106121,
+      "error": "antibot_challenge",
+      "notes": "Blocked by challenge page.",
+      "diagnostics": {}
+    },
+    {
+      "method": "idea_d_browser_xhr",
+      "status": "failed",
+      "latency_ms": 7102,
+      "products_found": 0,
+      "fields_completeness": {
+        "title": 0,
+        "price": 0,
+        "image": 0,
+        "url": 0,
+        "characteristics": 0
+      },
+      "products": [],
+      "http_status": 403,
+      "response_size": 100288,
+      "error": "access_denied",
+      "notes": "Browser never reached search JSON because top-level request was blocked.",
+      "diagnostics": {
+        "observed_urls": [
+          "https://www.ozon.ru/search/?text=iphone+15",
+          "https://www.ozon.ru/search/?text=iphone+15&__rr=1"
+        ],
+        "title": "Доступ ограничен"
+      }
+    }
+  ],
+  "blocked_reason": "api_challenge",
+  "latency_ms": 13704
+}

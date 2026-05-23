@@ -1,0 +1,22 @@
+{
+  "idea": "C",
+  "query": "футболка мужская хлопок",
+  "status": "failed",
+  "products_found": 0,
+  "fields_completeness": {
+    "title": 0,
+    "price": 0,
+    "image": 0,
+    "url": 0,
+    "characteristics": 0
+  },
+  "latency_ms": 7001,
+  "error": "access_denied",
+  "notes": "Playwright DOM extraction after page render.",
+  "diagnostics": {
+    "http_status": 403,
+    "response_size": 100288,
+    "final_url": "https://www.ozon.ru/search/?text=%D1%84%D1%83%D1%82%D0%B1%D0%BE%D0%BB%D0%BA%D0%B0+%D0%BC%D1%83%D0%B6%D1%81%D0%BA%D0%B0%D1%8F+%D1%85%D0%BB%D0%BE%D0%BF%D0%BE%D0%BA&__rr=1",
+    "title": "Доступ ограничен"
+  }
+}

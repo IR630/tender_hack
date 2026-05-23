@@ -1,0 +1,20 @@
+{
+  "idea": "G",
+  "query": "шины 205/55 R16",
+  "status": "failed",
+  "products_found": 0,
+  "fields_completeness": {
+    "title": 0,
+    "price": 0,
+    "image": 0,
+    "url": 0,
+    "characteristics": 0
+  },
+  "latency_ms": 334,
+  "error": "antibot_challenge",
+  "notes": "Sitemap endpoint is challenge-protected from current IP.",
+  "diagnostics": {
+    "http_status": 403,
+    "response_size": 105957
+  }
+}
