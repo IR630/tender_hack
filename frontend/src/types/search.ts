@@ -25,6 +25,7 @@ export interface SearchGroup {
   products: Product[];
   error?: string | null;
   status?: string | null;
+  expected_max?: number;
 }
 
 export interface SearchResponse {

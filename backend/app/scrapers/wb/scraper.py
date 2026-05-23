@@ -63,7 +63,13 @@ async def _store_cached_products(region: str, query: str, products: list[Product
 class WBParser:
     """Wildberries search parser (phase 1: session warmup + PRIMARY fetch)."""
 
-    async def search(self, query: str, region: Region) -> tuple[list[Product], str | None]:
+    async def search(
+        self,
+        query: str,
+        region: Region,
+        *,
+        on_partial=None,
+    ) -> tuple[list[Product], str | None]:
         query = query.strip()
         if not query:
             return [], None
@@ -94,15 +100,27 @@ class WBParser:
             logger.warning("WB parser failed for query=%r: %s", query, attempt.error)
             return [], attempt.error
 
-        products = await resolve_product_images(assemble_products(attempt.products))
-        if not products:
+        assembled = assemble_products(attempt.products)
+        if not assembled:
             return [], "Wildberries вернул товары, но ни один не прошёл фильтрацию (цена/поля)"
+
+        fast_batch = await resolve_product_images(assembled[:5])
+        if on_partial and fast_batch:
+            try:
+                await on_partial(fast_batch)
+            except Exception:
+                pass
+
+        rest_batch = await resolve_product_images(assembled[5:15])
+        products = fast_batch + rest_batch
 
         await _store_cached_products(region.id, query, products)
         logger.info(
-            "WB parser funnel for %r: %d raw -> %d returned",
+            "WB parser funnel for %r: %d raw -> %d fast + %d rest = %d total",
             query,
             len(attempt.products),
+            len(fast_batch),
+            len(rest_batch),
             len(products),
         )
         return products, None
@@ -114,10 +132,10 @@ wb_parser = WBParser()
 class WildberriesScraper(BaseScraper):
     source = "wildberries"
 
-    async def search(self, request: SearchRequest) -> list[Product]:
+    async def search(self, request: SearchRequest, *, on_partial=None) -> list[Product]:
         self.clear_error()
         region = resolve_region(request.region)
-        products, error = await wb_parser.search(request.query, region)
+        products, error = await wb_parser.search(request.query, region, on_partial=on_partial)
         if error:
             self.set_error(error)
             return []

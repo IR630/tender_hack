@@ -38,7 +38,7 @@ def _to_product(item) -> Product:
     )
 
 
-async def _run_search(query: str, region: str) -> list[Product]:
+async def _run_search(query: str, region: str, *, on_partial=None) -> list[Product]:
     if settings.other_cache_enabled:
         cached = cache_get(_cache_key(region, query))
         if cached is not None:
@@ -51,8 +51,17 @@ async def _run_search(query: str, region: str) -> list[Product]:
             return [Product.model_validate(item) for item in cached]
         logger.info("other_cache_miss query=%r region=%s", query, region)
 
+    # Wrap the Product-level callback into an OtherExtractResult-level callback
+    raw_on_partial = None
+    if on_partial:
+        async def raw_on_partial(raw_items) -> None:
+            try:
+                await on_partial([_to_product(item) for item in raw_items])
+            except Exception:
+                pass
+
     raw = await asyncio.wait_for(
-        search_other(query, region),
+        search_other(query, region, on_partial=raw_on_partial),
         timeout=settings.other_search_timeout_seconds,
     )
     products = [_to_product(item) for item in raw]
@@ -71,6 +80,7 @@ async def search_other_sources(
     request: SearchRequest,
     *,
     original_query: str | None = None,
+    on_partial=None,
 ) -> list[Product]:
     global _last_error
     _last_error = None
@@ -85,7 +95,7 @@ async def search_other_sources(
     last_diag_message: str | None = None
     for query in attempts:
         try:
-            products = await _run_search(query, request.region)
+            products = await _run_search(query, request.region, on_partial=on_partial)
             if products:
                 _last_error = None
                 return products

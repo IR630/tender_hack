@@ -14,12 +14,12 @@ class OzonScraper(BaseScraper):
     def __init__(self) -> None:
         self._public = OzonPublicScraper()
 
-    async def search(self, request: SearchRequest) -> list[Product]:
+    async def search(self, request: SearchRequest, *, on_partial=None) -> list[Product]:
         if settings.ozon_use_browser:
-            return await self._search_browser(request)
-        return await self._search_public(request)
+            return await self._search_browser(request, on_partial=on_partial)
+        return await self._search_public(request, on_partial=on_partial)
 
-    async def _search_browser(self, request: SearchRequest) -> list[Product]:
+    async def _search_browser(self, request: SearchRequest, *, on_partial=None) -> list[Product]:
         self.clear_error()
         raw, error, status = await ozon_browser.search_products(
             request.query.strip(), region=request.region
@@ -31,7 +31,7 @@ class OzonScraper(BaseScraper):
         if error:
             self.set_error(error)
             return []
-        return [
+        products = [
             Product(
                 source="ozon",
                 source_domain="ozon.ru",
@@ -50,8 +50,14 @@ class OzonScraper(BaseScraper):
             )
             for item in raw
         ]
+        if on_partial and products:
+            try:
+                await on_partial(products[: self.FAST_LIMIT])
+            except Exception:
+                pass
+        return products[: self.FULL_LIMIT]
 
-    async def _search_public(self, request: SearchRequest) -> list[Product]:
+    async def _search_public(self, request: SearchRequest, *, on_partial=None) -> list[Product]:
         region = resolve_region(request.region)
         self.clear_error()
         try:
@@ -77,7 +83,12 @@ class OzonScraper(BaseScraper):
                     description=item.description or "",
                 )
             )
-        return products
+        if on_partial and products:
+            try:
+                await on_partial(products[: self.FAST_LIMIT])
+            except Exception:
+                pass
+        return products[: self.FULL_LIMIT]
 
 
 scraper = OzonScraper()

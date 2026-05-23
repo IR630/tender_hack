@@ -19,13 +19,12 @@ const SOURCES = [
 const ORB = 40; // docked wheel diameter, px
 const SCALE = 2.8; // centered scale → ~112px
 
-type Phase = "centered" | "docked" | "exit";
+type Phase = "centered" | "docked" | "hidden";
 
 interface SearchProgressProps {
   mainRef: RefObject<HTMLElement | null>;
   formRef: RefObject<HTMLFormElement | null>;
-  loading: boolean;
-  hasPartial: boolean;
+  phase: Phase;
   query: string;
   statusMessage?: string | null;
 }
@@ -33,28 +32,30 @@ interface SearchProgressProps {
 export function SearchProgress({
   mainRef,
   formRef,
-  loading,
-  hasPartial,
+  phase,
   query,
   statusMessage,
 }: SearchProgressProps) {
-  const [mounted, setMounted] = useState(loading);
+  const [mounted, setMounted] = useState(phase !== "hidden");
   const [statusIndex, setStatusIndex] = useState(0);
   const [activeSource, setActiveSource] = useState(0);
   const slotRef = useRef<HTMLDivElement>(null);
+  const lastVisibleRef = useRef<"centered" | "docked">("centered");
   const [geom, setGeom] = useState({ left: 0, top: 0, dx: 0, dy: 0, statusRight: 0, statusTop: 0 });
 
-  const phase: Phase = !loading ? "exit" : hasPartial ? "docked" : "centered";
+  if (phase !== "hidden") {
+    lastVisibleRef.current = phase;
+  }
 
   // keep mounted through the exit fade so the wheel doesn't vanish abruptly
   useEffect(() => {
-    if (loading) {
+    if (phase !== "hidden") {
       setMounted(true);
       return;
     }
     const timer = window.setTimeout(() => setMounted(false), 360);
     return () => window.clearTimeout(timer);
-  }, [loading]);
+  }, [phase]);
 
   // rotating status + source highlight — only meaningful in the centered card
   useEffect(() => {
@@ -123,8 +124,9 @@ export function SearchProgress({
     return null;
   }
 
+  const visualPhase = phase === "hidden" ? lastVisibleRef.current : phase;
   const orbTransform =
-    phase === "centered"
+    visualPhase === "centered"
       ? `translate(${geom.dx}px, ${geom.dy}px) scale(${SCALE})`
       : "translate(0px, 0px) scale(1)";
 
@@ -193,7 +195,7 @@ export function SearchProgress({
           width: ORB,
           height: ORB,
           transform: orbTransform,
-          opacity: phase === "exit" ? 0 : 1,
+          opacity: phase === "hidden" ? 0 : 1,
         }}
         role="status"
         aria-label="Идёт поиск"

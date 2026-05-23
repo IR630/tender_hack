@@ -5,6 +5,7 @@ import type { SearchGroup } from "../types/search";
 
 interface SourceGroupProps {
   group: SearchGroup;
+  pending?: boolean;
 }
 
 function formatPrice(price: number | null): string {
@@ -92,7 +93,7 @@ export function SourceGroup({ group }: SourceGroupProps) {
               </button>
             </li>
           )}
-        </ul>
+        </>
       )}
     </section>
   );
