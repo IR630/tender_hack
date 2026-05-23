@@ -3,7 +3,7 @@ import logging
 import structlog
 from fastapi import FastAPI
 
-from app.api.routes import regions, search
+from app.api.routes import regions, search, wb_metrics
 from app.core.config import settings
 
 structlog.configure(
@@ -23,6 +23,7 @@ logging.basicConfig(
 app = FastAPI(title=settings.app_name, version="0.1.0")
 app.include_router(search.router)
 app.include_router(regions.router)
+app.include_router(wb_metrics.router)
 
 
 @app.get("/health")

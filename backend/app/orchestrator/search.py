@@ -114,7 +114,7 @@ def _build_response(
 async def run_search(request: SearchRequest) -> SearchResponse:
     """Synchronous-style search (all sources). Used by background task."""
     started = time.perf_counter()
-    processed = process_query(request.query)
+    processed = await process_query(request.query)
     region = resolve_region(request.region)
     search_request = SearchRequest(query=processed.corrected, region=region.id)
     groups_by_source: dict[str, SearchGroup] = {}
@@ -144,7 +144,7 @@ async def run_search_task(task_id: str, request: SearchRequest) -> None:
     started = time.perf_counter()
 
     try:
-        processed = process_query(request.query)
+        processed = await process_query(request.query)
         region = resolve_region(request.region)
         search_request = SearchRequest(query=processed.corrected, region=region.id)
         groups_by_source: dict[str, SearchGroup] = {}
@@ -177,7 +177,7 @@ async def run_search_task(task_id: str, request: SearchRequest) -> None:
             _run_and_publish(
                 "other",
                 None,
-                search_other_sources(search_request),
+                search_other_sources(search_request, original_query=processed.original),
                 "Другие источники…",
             ),
         )

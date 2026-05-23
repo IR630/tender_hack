@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     wb_min_request_interval_seconds: float = 1.5
     wb_circuit_breaker_seconds: float = 10 * 60
     wb_cache_enabled: bool = True
+    wb_warmup_enabled: bool = True
+    wb_session_max_age_seconds: float = 25 * 60
+    wb_session_idle_seconds: float = 10 * 60
+    wb_search_max_retries: int = 1
+    wb_search_retry_delay_seconds: float = 0.5
     ym_cache_enabled: bool = True
     ym_search_max_pages: int = 3
     ozon_use_browser: bool = True
@@ -37,6 +42,13 @@ class Settings(BaseSettings):
     ozon_browser_cache_enabled: bool = False
     ozon_browser_cache_ttl_seconds: int = 24 * 60 * 60
     ozon_disk_cache_dir: str = ""
+    query_spell_enabled: bool = True
+    query_spell_timeout_seconds: float = 4.0
+    query_spell_cache_ttl_seconds: int = 86400
+    other_search_timeout_seconds: float = 25.0
+    other_fetch_concurrency: int = 4
+    other_cache_enabled: bool = False
+    other_max_results: int = 8
 
 
 settings = Settings()

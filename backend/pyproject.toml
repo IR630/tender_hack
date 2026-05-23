@@ -42,7 +42,7 @@ dev = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["tests", "ozon_public_scraper/tests"]
+testpaths = ["tests", "ozon_public_scraper/tests", "other_public_scraper/tests"]
 pythonpath = ["."]
 addopts = "-m 'not integration'"
 markers = [
