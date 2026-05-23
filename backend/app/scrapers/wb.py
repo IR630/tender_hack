@@ -8,6 +8,7 @@ avoid burning the egress IP.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import random
 import time
@@ -62,17 +63,33 @@ _exit_ip_fetched_at = 0.0
 _EXIT_IP_TTL = 60.0
 
 
+_IP_CHECK_URLS = [
+    "https://api.ipify.org",          # plain-text IP, very fast
+    "https://checkip.amazonaws.com",  # plain-text IP, AWS edge
+    "https://httpbin.org/ip",         # JSON {"origin": "..."}
+]
+
+
 def _get_exit_ip() -> str:
     """Return the current outbound IP used by the WB session (cached 60 s)."""
     global _exit_ip_cache, _exit_ip_fetched_at
     now = time.monotonic()
     if _exit_ip_cache and now - _exit_ip_fetched_at < _EXIT_IP_TTL:
         return _exit_ip_cache
-    try:
-        r = _get_session().get("https://httpbin.org/ip", timeout=5)
-        ip = r.json().get("origin", "unknown")
-    except Exception:
-        ip = "unavailable"
+    session = _get_session()
+    ip = "unavailable"
+    for url in _IP_CHECK_URLS:
+        try:
+            r = session.get(url, timeout=5)
+            text = r.text.strip()
+            # httpbin returns JSON, others return plain IP
+            if text.startswith("{"):
+                ip = json.loads(text).get("origin", "unknown")
+            else:
+                ip = text
+            break
+        except Exception:
+            continue
     _exit_ip_cache = ip
     _exit_ip_fetched_at = now
     return ip
