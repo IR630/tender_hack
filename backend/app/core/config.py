@@ -1,8 +1,23 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_BACKEND_DIR = _REPO_ROOT / "backend"
+
+
+def _discover_env_files() -> tuple[str, ...]:
+    candidates = (_BACKEND_DIR / ".env", _REPO_ROOT / ".env")
+    found = tuple(str(path) for path in candidates if path.is_file())
+    return found or (".env", "../.env")
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=_discover_env_files(),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     app_name: str = "Tender Hack Price Aggregator"
     debug: bool = False
@@ -24,7 +39,7 @@ class Settings(BaseSettings):
     ozon_browser_wait_seconds: float = 30.0
     ozon_browser_total_timeout_seconds: float = 45.0
     ozon_browser_warmup_home: bool = True
-    ozon_browser_warmup_seconds: float = 5.0
+    ozon_browser_warmup_seconds: float = 8.0
     ozon_browser_max_retries: int = 1
     ozon_browser_retry_delay_seconds: float = 3.0
     ozon_browser_headless: bool | None = None
@@ -35,7 +50,7 @@ class Settings(BaseSettings):
     ozon_enrich_enabled: bool = True
     ozon_enrich_concurrency: int = 1
     ozon_enrich_delay_seconds: float = 5.0
-    ozon_enrich_wait_seconds: float = 15.0
+    ozon_enrich_wait_seconds: float = 20.0
     ozon_enrich_timeout_seconds: float = 25.0
     ozon_pipeline_timeout_seconds: float = 180.0
     search_task_poll_interval_seconds: float = 3.0
@@ -45,7 +60,7 @@ class Settings(BaseSettings):
     query_spell_enabled: bool = True
     query_spell_timeout_seconds: float = 4.0
     query_spell_cache_ttl_seconds: int = 86400
-    other_search_timeout_seconds: float = 25.0
+    other_search_timeout_seconds: float = 45.0
     other_fetch_concurrency: int = 4
     other_cache_enabled: bool = False
     other_max_results: int = 8

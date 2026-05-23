@@ -103,11 +103,14 @@ class OtherPublicSettings(BaseSettings):
     other_bing_fallback_enabled: bool = Field(default=False, validation_alias="OTHER_BING_FALLBACK_ENABLED")
     other_bing_timeout_seconds: float = Field(default=4.0, validation_alias="OTHER_BING_TIMEOUT_SECONDS")
     other_catalog_harvest_per_listing: int = Field(
-        default=4, validation_alias="OTHER_CATALOG_HARVEST_PER_LISTING"
+        default=8, validation_alias="OTHER_CATALOG_HARVEST_PER_LISTING"
     )
     other_catalog_harvest_depth: int = Field(default=2, validation_alias="OTHER_CATALOG_HARVEST_DEPTH")
     other_catalog_harvest_max_listings: int = Field(
-        default=6, validation_alias="OTHER_CATALOG_HARVEST_MAX_LISTINGS"
+        default=4, validation_alias="OTHER_CATALOG_HARVEST_MAX_LISTINGS"
+    )
+    other_catalog_harvest_budget_seconds: float = Field(
+        default=12.0, validation_alias="OTHER_CATALOG_HARVEST_BUDGET_SECONDS"
     )
     other_request_timeout: float = Field(default=10.0, validation_alias="OTHER_REQUEST_TIMEOUT")
     other_snippet_similarity_threshold: float = Field(
@@ -117,6 +120,10 @@ class OtherPublicSettings(BaseSettings):
         default=0.40, validation_alias="OTHER_TITLE_SIMILARITY_THRESHOLD"
     )
     other_max_results: int = Field(default=8, validation_alias="OTHER_MAX_RESULTS")
+    other_rank_pool_size: int = Field(default=16, validation_alias="OTHER_RANK_POOL_SIZE")
+    other_listing_products_per_page: int = Field(
+        default=8, validation_alias="OTHER_LISTING_PRODUCTS_PER_PAGE"
+    )
     other_max_searxng_urls: int = Field(default=20, validation_alias="OTHER_MAX_SEARXNG_URLS")
 
 

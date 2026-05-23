@@ -7,7 +7,6 @@ from urllib.parse import urlparse
 import httpx
 
 from other_public_scraper.config import DOMAIN_BLACKLIST, settings
-from other_public_scraper.debug_log import agent_log
 from other_public_scraper.diagnostics import active_diagnostics
 from other_public_scraper.models import UrlCandidate
 
@@ -38,12 +37,6 @@ async def search_other_urls(query: str, *, limit: int = 20) -> list[UrlCandidate
     )
     url = f"{settings.searxng_url.rstrip('/')}/search"
     params = {"q": q, "format": "json", "safesearch": "0", "language": "ru-RU"}
-    agent_log(
-        hypothesis_id="H2",
-        location="searxng.py:search_other_urls",
-        message="searxng_query",
-        data={"query": query, "searxng_q": q},
-    )
 
     t0 = time.perf_counter()
     try:

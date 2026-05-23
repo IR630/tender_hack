@@ -57,8 +57,21 @@ export OZON_PIPELINE_TIMEOUT_SECONDS="${OZON_PIPELINE_TIMEOUT_SECONDS:-180}"
 export OTHER_DDG_ENABLED="${OTHER_DDG_ENABLED:-true}"
 export OTHER_YAHOO_ENABLED="${OTHER_YAHOO_ENABLED:-true}"
 export OTHER_BING_FALLBACK_ENABLED="${OTHER_BING_FALLBACK_ENABLED:-false}"
-export OTHER_SEARCH_TIMEOUT_SECONDS="${OTHER_SEARCH_TIMEOUT_SECONDS:-25}"
+export OTHER_SEARCH_TIMEOUT_SECONDS="${OTHER_SEARCH_TIMEOUT_SECONDS:-45}"
 export OTHER_CACHE_ENABLED="${OTHER_CACHE_ENABLED:-false}"
+
+# Wildberries proxy — из корневого .env (если не задано в окружении)
+if [[ -z "${WB_PROXY:-}" && -f "${ROOT}/.env" ]]; then
+  WB_PROXY="$(grep -E '^WB_PROXY=' "${ROOT}/.env" | tail -1 | cut -d= -f2- | tr -d '\r' || true)"
+  export WB_PROXY
+fi
+export WB_PROXY_MAX_RETRIES="${WB_PROXY_MAX_RETRIES:-15}"
+export WB_PROXY_STICKY_SESSION="${WB_PROXY_STICKY_SESSION:-false}"
+if [[ -n "${WB_PROXY:-}" ]]; then
+  echo "WB_PROXY configured (pool proxy enabled)"
+else
+  echo "WARN: WB_PROXY not set — Wildberries will use direct IP"
+fi
 
 run_api() {
   uv run uvicorn app.main:app --host 127.0.0.1 --port 8000

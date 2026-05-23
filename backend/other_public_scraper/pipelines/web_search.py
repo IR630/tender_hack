@@ -3,45 +3,25 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
-import time
+import re
 
 from other_public_scraper.config import settings
 from other_public_scraper.debug_log import agent_log
 from other_public_scraper.diagnostics import active_diagnostics
 from other_public_scraper.models import UrlCandidate
-from other_public_scraper.url_heuristics import filter_and_sort_candidates, is_rejected_url, url_quality_score
 from other_public_scraper.pipelines.bing_search import search_bing_urls
 from other_public_scraper.pipelines.ddg_search import search_ddg_urls
 from other_public_scraper.pipelines.searxng import search_other_urls
 from other_public_scraper.pipelines.sitemap_search import search_sitemap_urls
 from other_public_scraper.pipelines.yahoo_search import search_yahoo_urls
+from other_public_scraper.query_variants import search_query_variants
+from other_public_scraper.url_heuristics import (
+    filter_and_sort_candidates,
+    url_quality_score,
+)
 
 logger = logging.getLogger(__name__)
-
-# #region agent log
-_DEBUG_LOG_PATH = "/home/ir6/my/tender_hack/.cursor/debug-6c5798.log"
-_DEBUG_SESSION = "6c5798"
-
-
-def _debug_log(*, hypothesis_id: str, location: str, message: str, data: dict | None = None) -> None:
-    entry = {
-        "sessionId": _DEBUG_SESSION,
-        "timestamp": int(time.time() * 1000),
-        "hypothesisId": hypothesis_id,
-        "location": location,
-        "message": message,
-        "data": data or {},
-    }
-    try:
-        with open(_DEBUG_LOG_PATH, "a", encoding="utf-8") as handle:
-            handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
-    except OSError:
-        pass
-
-
-# #endregion
 
 
 def _merge_live(*groups: list[UrlCandidate]) -> list[UrlCandidate]:
@@ -61,25 +41,15 @@ async def _run_provider(
         hits = await task
     except Exception as exc:
         logger.warning("other_live provider=%s failed: %s", name, exc)
-        _debug_log(
-            hypothesis_id="H1",
-            location="web_search.py:_run_provider",
-            message="provider_failed",
-            data={"provider": name, "error": repr(exc)},
-        )
         return name, []
     return name, hits
 
 
-async def search_live_urls(query: str, *, limit: int | None = None) -> list[UrlCandidate]:
+async def search_live_urls(
+    query: str, *, limit: int | None = None, allow_fallbacks: bool = True
+) -> list[UrlCandidate]:
     """Discover product URLs via generic web search (no site-specific endpoints)."""
     limit = limit or settings.other_max_searxng_urls
-    _debug_log(
-        hypothesis_id="H1",
-        location="web_search.py:search_live_urls",
-        message="discovery_start",
-        data={"query": query, "limit": limit},
-    )
 
     primary_tasks: list[tuple[str, asyncio.Task[list[UrlCandidate]]]] = []
     if settings.other_yahoo_enabled:
@@ -114,32 +84,10 @@ async def search_live_urls(query: str, *, limit: int | None = None) -> list[UrlC
             len(merged),
             len(merged_raw),
         )
-        _debug_log(
-            hypothesis_id="H1",
-            location="web_search.py:search_live_urls",
-            message="discovery_complete",
-            data={
-                "query": query,
-                "source_counts": source_counts,
-                "merged_count": len(merged),
-                "raw_count": len(merged_raw),
-                "providers": providers_ok,
-                "sample_urls": [item.url[:90] for item in merged[:5]],
-                "rejected_count": sum(1 for c in merged_raw if is_rejected_url(c.url)),
-            },
-        )
-        agent_log(
-            hypothesis_id="H1",
-            location="web_search.py:search_live_urls",
-            message="discovery_complete",
-            data={
-                "query": query,
-                "source_counts": source_counts,
-                "merged_count": len(merged),
-                "providers": providers_ok,
-            },
-        )
         return merged
+
+    if not allow_fallbacks:
+        return []
 
     if settings.other_bing_fallback_enabled:
         _, bing_hits = await _run_provider(
@@ -174,25 +122,63 @@ async def search_live_urls(query: str, *, limit: int | None = None) -> list[UrlC
             query,
             len(sitemap_hits),
         )
-        _debug_log(
-            hypothesis_id="H3",
-            location="web_search.py:search_live_urls",
-            message="discovery_sitemap_fallback",
-            data={"query": query, "source_counts": source_counts, "merged_count": len(sitemap_hits)},
-        )
         return sitemap_hits[:limit]
 
     logger.warning("other_live_search query=%r all_providers=0 sources=%s", query, source_counts)
-    _debug_log(
-        hypothesis_id="H1",
-        location="web_search.py:search_live_urls",
-        message="discovery_empty",
-        data={"query": query, "source_counts": source_counts},
+    return []
+
+
+async def _search_ddg_supplement(query: str, *, limit: int) -> list[UrlCandidate]:
+    if not settings.other_ddg_enabled:
+        return []
+    per_query = max(5, limit // 3)
+    variants = search_query_variants(query)
+    latin = next(
+        (v for v in variants if re.search(r"iphone\s+\d", v, re.IGNORECASE)),
+        query,
     )
+    tasks = [
+        search_ddg_urls(f"{latin} купить", limit=per_query),
+        search_ddg_urls(f"{latin} site:cmstore.ru", limit=4),
+        search_ddg_urls(f"{latin} site:re-store.ru", limit=4),
+        search_ddg_urls(f"{latin} site:shop.mts.ru", limit=4),
+    ]
+    groups = await asyncio.gather(*tasks, return_exceptions=True)
+    merged: list[UrlCandidate] = []
+    for group in groups:
+        if isinstance(group, list):
+            merged.extend(group)
+    return merged
+
+
+async def search_live_urls_expanded(
+    query: str,
+    *,
+    limit: int | None = None,
+    category: str = "unknown",
+) -> list[UrlCandidate]:
+    """Run live search across query variants and orgtech shop supplements."""
+    limit = limit or settings.other_max_searxng_urls
+    variants = search_query_variants(query)
+    variant_tasks = [
+        search_live_urls(variant, limit=limit, allow_fallbacks=False) for variant in variants[:3]
+    ]
+    groups = await asyncio.gather(*variant_tasks)
+    merged = _merge_live(*groups)
+    if category == "orgtech":
+        supplemental = await _search_ddg_supplement(query, limit=limit)
+        merged = _merge_live(merged, supplemental)
+    merged = filter_and_sort_candidates(merged)
+    merged = [item for item in merged if url_quality_score(item.url) >= 0][:limit]
     agent_log(
         hypothesis_id="H1",
-        location="web_search.py:search_live_urls",
-        message="discovery_empty",
-        data={"query": query, "source_counts": source_counts, "merged_count": 0},
+        location="web_search.py:search_live_urls_expanded",
+        message="discovery_expanded",
+        data={
+            "query": query,
+            "variants": variants[:4],
+            "merged_count": len(merged),
+            "sample_urls": [item.url[:90] for item in merged[:5]],
+        },
     )
-    return []
+    return merged

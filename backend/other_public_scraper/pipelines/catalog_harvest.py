@@ -22,16 +22,15 @@ _PRODUCT_PATH_RE = re.compile(
     r"|/goods/"
     r"|/item/"
     r"|/tovar/"
-    r"|/shina/"
-    r"|/tyre[s]?/"
     r"|/card/"
     r"|/catalog/\d+"
     r"|/razmer/"
-    r"|/\d{5,}"
-    r"|/\d{3}-\d{2}-\d{2}/?"
     r")",
     re.IGNORECASE,
 )
+
+_TIRE_SIZE_RE = re.compile(r"\d{3}[-/]\d{2}[-/]R?\d{2}", re.IGNORECASE)
+_NUMERIC_ID_RE = re.compile(r"/\d{5,}")
 
 _CATALOG_PATH_RE = re.compile(
     r"(?:"
@@ -73,7 +72,19 @@ def _is_product_url(url: str) -> bool:
     path = urlparse(url).path
     if _SKIP_PATH_RE.search(path):
         return False
-    return bool(_PRODUCT_PATH_RE.search(path))
+    lowered = path.lower()
+    if "/all_sizes/" in lowered or "/category/" in lowered:
+        return False
+    if _TIRE_SIZE_RE.search(path):
+        return True
+    if _NUMERIC_ID_RE.search(path):
+        return True
+    if _PRODUCT_PATH_RE.search(path):
+        return True
+    segments = [part for part in path.split("/") if part]
+    if "catalog" in segments and len(segments) >= 5 and re.search(r"\d", segments[-1]):
+        return True
+    return False
 
 
 def _needs_expansion(url: str) -> bool:
@@ -187,7 +198,16 @@ async def expand_listing_candidates(
             seen.add(key)
             harvested.append(item)
 
-    merged = direct + harvested
+    merged = direct + listings[: min(4, len(listings))] + harvested
+    seen_merge: set[str] = set()
+    deduped: list[UrlCandidate] = []
+    for item in merged:
+        key = item.url.split("#")[0]
+        if key in seen_merge:
+            continue
+        seen_merge.add(key)
+        deduped.append(item)
+    merged = deduped
     logger.info(
         "other_catalog_harvest listings=%d harvested=%d kept_direct=%d",
         len(listings),

@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import logging
-
 from urllib.parse import urlparse
 
-from other_public_scraper.debug_log import agent_log
 from other_public_scraper.url_heuristics import url_quality_score
 
 logger = logging.getLogger(__name__)
@@ -107,12 +105,6 @@ def rank_candidates(query: str, candidates: list, *, threshold: float, limit: in
             threshold,
             len(rejected),
             rejected[:3],
-        )
-        agent_log(
-            hypothesis_id="H5",
-            location="relevance_filter.py:rank_candidates",
-            message="snippet_rejected",
-            data={"query": query, "rejected_count": len(rejected), "sample": rejected[:5]},
         )
     logger.info(
         "other_rank query=%r candidates=%d passed=%d limit=%d",

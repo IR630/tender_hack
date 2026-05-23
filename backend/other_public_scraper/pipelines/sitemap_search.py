@@ -10,9 +10,9 @@ import time
 import xml.etree.ElementTree as ET
 from urllib.parse import urlparse
 
-from other_public_scraper.config import DOMAIN_BLACKLIST, CATEGORY_PROTOTYPES, settings
-from other_public_scraper.ml.query_classifier import classify_query
+from other_public_scraper.config import CATEGORY_PROTOTYPES, DOMAIN_BLACKLIST, settings
 from other_public_scraper.jobs.build_mini_index import PRODUCT_URL_RE
+from other_public_scraper.ml.query_classifier import classify_query
 from other_public_scraper.models import UrlCandidate
 from other_public_scraper.storage.meili import search_meili
 from other_public_scraper.transport import fetch_html

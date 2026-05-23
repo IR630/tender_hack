@@ -4,6 +4,7 @@ import time
 from collections.abc import Coroutine
 from typing import Any
 
+from app.core.config import settings
 from app.core.models import (
     Product,
     SearchGroup,
@@ -12,7 +13,6 @@ from app.core.models import (
     SearchResponse,
     SearchSummary,
 )
-from app.core.config import settings
 from app.core.regions import resolve_region
 from app.query.processor import process_query
 from app.scrapers import ozon, wb, yandex_market
@@ -132,6 +132,7 @@ async def run_search(request: SearchRequest) -> SearchResponse:
     search_request = SearchRequest(query=processed.corrected, region=region.id)
     groups_by_source: dict[str, SearchGroup] = {}
     enabled = _enabled_sources()
+    groups_lock = asyncio.Lock()
     logger.info("search_enabled_sources=%s", ",".join(_active_source_order()))
 
     async def _run_one(source: str, scraper: Any, coro: Coroutine[Any, Any, list[Product]]) -> None:
@@ -140,31 +141,44 @@ async def run_search(request: SearchRequest) -> SearchResponse:
             error = get_last_error()
             if error:
                 status = "empty_with_diagnostics"
-        groups_by_source[source] = _build_group(source, products, error, status)
+        async with groups_lock:
+            groups_by_source[source] = _build_group(source, products, error, status)
 
-    tasks: list[Coroutine[Any, Any, None]] = []
+    source_tasks: list[asyncio.Task[None]] = []
     if "wildberries" in enabled:
-        tasks.append(_run_one("wildberries", wb.scraper, wb.scraper.search(search_request)))
+        source_tasks.append(
+            asyncio.create_task(
+                _run_one("wildberries", wb.scraper, wb.scraper.search(search_request))
+            )
+        )
     if "yandex_market" in enabled:
-        tasks.append(
-            _run_one(
-                "yandex_market",
-                yandex_market.scraper,
-                yandex_market.scraper.search(search_request),
+        source_tasks.append(
+            asyncio.create_task(
+                _run_one(
+                    "yandex_market",
+                    yandex_market.scraper,
+                    yandex_market.scraper.search(search_request),
+                )
             )
         )
     if "other" in enabled:
-        tasks.append(
-            _run_one(
-                "other",
-                None,
-                search_other_sources(search_request, original_query=processed.original),
+        source_tasks.append(
+            asyncio.create_task(
+                _run_one(
+                    "other",
+                    None,
+                    search_other_sources(search_request, original_query=processed.original),
+                )
             )
         )
-    if tasks:
-        await asyncio.gather(*tasks)
     if "ozon" in enabled:
-        await _run_one("ozon", ozon.scraper, ozon.scraper.search(search_request))
+        source_tasks.append(
+            asyncio.create_task(
+                _run_one("ozon", ozon.scraper, ozon.scraper.search(search_request))
+            )
+        )
+    if source_tasks:
+        await asyncio.gather(*source_tasks)
 
     ordered = [groups_by_source[s] for s in _active_source_order() if s in groups_by_source]
     return _build_response(request, processed, region, ordered, started)
@@ -181,6 +195,7 @@ async def run_search_task(task_id: str, request: SearchRequest) -> None:
         search_request = SearchRequest(query=processed.corrected, region=region.id)
         groups_by_source: dict[str, SearchGroup] = {}
         enabled = _enabled_sources()
+        groups_lock = asyncio.Lock()
         logger.info("search_enabled_sources=%s", ",".join(_active_source_order()))
 
         async def _run_and_publish(source: str, scraper, coro, message: str) -> None:
@@ -190,55 +205,66 @@ async def run_search_task(task_id: str, request: SearchRequest) -> None:
                 error = get_last_error()
                 if error:
                     status = "empty_with_diagnostics"
-            groups_by_source[source] = _build_group(source, products, error, status)
-            partial = [
-                groups_by_source[s]
-                for s in _active_source_order()
-                if s in groups_by_source
-            ]
+            async with groups_lock:
+                groups_by_source[source] = _build_group(source, products, error, status)
+                partial = [
+                    groups_by_source[s]
+                    for s in _active_source_order()
+                    if s in groups_by_source
+                ]
             await search_task_store.update_progress(
                 task_id,
                 message=f"Готово: {SOURCE_DISPLAY_NAMES[source]}",
                 groups=partial,
             )
 
-        parallel: list[Coroutine[Any, Any, None]] = []
+        source_tasks: list[asyncio.Task[None]] = []
         if "wildberries" in enabled:
-            parallel.append(
-                _run_and_publish(
-                    "wildberries",
-                    wb.scraper,
-                    wb.scraper.search(search_request),
-                    "Wildberries…",
+            source_tasks.append(
+                asyncio.create_task(
+                    _run_and_publish(
+                        "wildberries",
+                        wb.scraper,
+                        wb.scraper.search(search_request),
+                        "Wildberries…",
+                    )
                 )
             )
         if "yandex_market" in enabled:
-            parallel.append(
-                _run_and_publish(
-                    "yandex_market",
-                    yandex_market.scraper,
-                    yandex_market.scraper.search(search_request),
-                    "Яндекс Маркет…",
+            source_tasks.append(
+                asyncio.create_task(
+                    _run_and_publish(
+                        "yandex_market",
+                        yandex_market.scraper,
+                        yandex_market.scraper.search(search_request),
+                        "Яндекс Маркет…",
+                    )
                 )
             )
         if "other" in enabled:
-            parallel.append(
-                _run_and_publish(
-                    "other",
-                    None,
-                    search_other_sources(search_request, original_query=processed.original),
-                    "Другие источники…",
+            source_tasks.append(
+                asyncio.create_task(
+                    _run_and_publish(
+                        "other",
+                        None,
+                        search_other_sources(search_request, original_query=processed.original),
+                        "Другие источники…",
+                    )
                 )
             )
-        if parallel:
-            await asyncio.gather(*parallel)
         if "ozon" in enabled:
-            await _run_and_publish(
-                "ozon",
-                ozon.scraper,
-                ozon.scraper.search(search_request),
-                "Ozon: браузер проходит WAF (до 35 с)…",
+            source_tasks.append(
+                asyncio.create_task(
+                    _run_and_publish(
+                        "ozon",
+                        ozon.scraper,
+                        ozon.scraper.search(search_request),
+                        "Ozon: браузер проходит WAF (до 35 с)…",
+                    )
+                )
             )
+        if source_tasks:
+            await asyncio.gather(*source_tasks)
 
         ordered = [groups_by_source[s] for s in _active_source_order() if s in groups_by_source]
         response = _build_response(request, processed, region, ordered, started)

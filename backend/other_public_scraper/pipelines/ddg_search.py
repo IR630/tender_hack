@@ -11,7 +11,6 @@ from curl_cffi import requests as curl_requests
 from selectolax.parser import HTMLParser
 
 from other_public_scraper.config import DESKTOP_UA, DOMAIN_BLACKLIST, settings
-from other_public_scraper.debug_log import agent_log
 from other_public_scraper.models import UrlCandidate
 
 logger = logging.getLogger(__name__)
@@ -118,23 +117,11 @@ def _fetch_ddg_sync(query: str, *, limit: int) -> list[UrlCandidate]:
 
 async def search_ddg_urls(query: str, *, limit: int = 20) -> list[UrlCandidate]:
     search_query = f"{query} купить цена"
-    agent_log(
-        hypothesis_id="H2",
-        location="ddg_search.py:search_ddg_urls",
-        message="ddg_query",
-        data={"query": query, "ddg_q": search_query},
-    )
     t0 = time.perf_counter()
     try:
         results = await asyncio.to_thread(_fetch_ddg_sync, search_query, limit=limit)
     except Exception as exc:
         logger.warning("other_ddg failed query=%r: %r", search_query, exc)
-        agent_log(
-            hypothesis_id="H2",
-            location="ddg_search.py:search_ddg_urls",
-            message="ddg_failed",
-            data={"query": query, "error": repr(exc)},
-        )
         return []
 
     logger.info(

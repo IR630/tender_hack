@@ -5,6 +5,9 @@ from __future__ import annotations
 import re
 from urllib.parse import urlparse
 
+# Shops that block plain HTTP clients (401/403) — deprioritize in ranking
+_FETCH_BLOCKED_HOSTS = frozenset({"dns-shop.ru", "citilink.ru", "cifrus.ru"})
+
 # Hard reject: comparison, news, review aggregators, foreign shopping locales
 _REJECT_HOSTS = (
     "gsmarena.com",
@@ -79,6 +82,8 @@ def _host(url: str) -> str:
 def is_rejected_url(url: str) -> bool:
     """True when URL is clearly not a product page worth fetching."""
     host = _host(url)
+    if host in _FETCH_BLOCKED_HOSTS:
+        return True
     if any(host == h or host.endswith("." + h) for h in _REJECT_HOSTS):
         return True
     if _REJECT_PATH_RE.search(urlparse(url).path + urlparse(url).query):
@@ -109,6 +114,8 @@ def url_quality_score(url: str) -> float:
         score += 0.4
     if path.count("/") <= 3 and not has_product:
         score -= 0.15
+    if _host(url) in _FETCH_BLOCKED_HOSTS:
+        score -= 0.5
     return score
 
 

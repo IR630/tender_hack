@@ -161,7 +161,7 @@ export default function App() {
         </p>
       )}
 
-      {loading && <SearchLoader query={query} statusMessage={statusMessage} />}
+      {loading && orderedGroups.length === 0 && <SearchLoader query={query} statusMessage={statusMessage} />}
 
       {(loading || result) && orderedGroups.length > 0 && (
         <div className="space-y-4">
