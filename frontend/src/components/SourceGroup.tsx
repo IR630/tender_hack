@@ -15,7 +15,8 @@ function formatPrice(price: number | null): string {
   return `${Math.round(price / 100).toLocaleString("ru-RU")} ₽`;
 }
 
-const PAGE_SIZE = 10;
+const INITIAL_VISIBLE = 5;
+const EXPANSION_SIZE = 10;
 
 function productLabel(count: number): string {
   const mod10 = count % 10;
@@ -39,8 +40,17 @@ export function SourceGroup({ group, pending = false }: SourceGroupProps) {
 
   const firstProductUrl = group.products[0]?.product_url;
   useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [group.source, totalCount, firstProductUrl]);
+    setVisibleCount(INITIAL_VISIBLE);
+  }, [group.source, firstProductUrl]);
+
+  const products = group.products;
+  const moreInFlight = group.status === "loading_more" && visibleCount >= products.length;
+  const hasHidden = visibleCount < products.length;
+  const isExpanded = visibleCount > INITIAL_VISIBLE;
+
+  const handleShowMore = () =>
+    setVisibleCount((c) => Math.min(c + EXPANSION_SIZE, products.length));
+  const handleHide = () => setVisibleCount(INITIAL_VISIBLE);
 
   return (
     <section className="rounded-card border border-rule bg-paper-2 p-5">
@@ -89,29 +99,46 @@ export function SourceGroup({ group, pending = false }: SourceGroupProps) {
           )}
         </div>
       ) : (
-        <ul className="space-y-3">
-          {group.products.slice(0, shownCount).map((product) => (
-            <ProductCard key={`${product.source}-${product.product_url}`} product={product} />
-          ))}
-          {remainingCount > 0 && (
-            <li>
-              <button
-                type="button"
-                onClick={() =>
-                  setVisibleCount((count) =>
-                    Math.min(count + PAGE_SIZE, group.products.length, totalCount),
-                  )
-                }
-                className="w-full rounded-input border border-rule bg-paper px-4 py-2 text-sm text-ink-2 outline-none transition-colors hover:border-ink-2 hover:bg-paper-3 active:bg-rule focus-visible:ring-2 focus-visible:ring-focus/60"
-              >
-                Показать ещё {nextBatchSize} {productLabel(nextBatchSize)} ·{" "}
-                <span className="tnum">
-                  {nextVisibleCount} из {totalCount}
-                </span>
-              </button>
-            </li>
+        <>
+          <ul className="space-y-3">
+            {products.slice(0, visibleCount).map((product) => (
+              <ProductCard key={`${product.source}-${product.product_url}`} product={product} />
+            ))}
+            {moreInFlight && (
+              <li className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 animate-pulse">
+                <p className="text-xs text-slate-400">
+                  Синхронизация региональных цен и характеристик…
+                </p>
+              </li>
+            )}
+          </ul>
+
+          {(hasHidden || moreInFlight || isExpanded) && (
+            <div className="mt-4 flex flex-wrap gap-3">
+              {(hasHidden || moreInFlight) && (
+                <button
+                  type="button"
+                  onClick={handleShowMore}
+                  disabled={moreInFlight}
+                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {moreInFlight
+                    ? "Ищем ещё…"
+                    : `Показать ещё ${Math.min(EXPANSION_SIZE, products.length - visibleCount)} ${productLabel(Math.min(EXPANSION_SIZE, products.length - visibleCount))}`}
+                </button>
+              )}
+              {isExpanded && (
+                <button
+                  type="button"
+                  onClick={handleHide}
+                  className="rounded-md border border-slate-600 bg-transparent px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800"
+                >
+                  Скрыть
+                </button>
+              )}
+            </div>
           )}
-        </ul>
+        </>
       )}
     </section>
   );

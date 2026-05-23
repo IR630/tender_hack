@@ -198,15 +198,41 @@ async def run_search_task(task_id: str, request: SearchRequest) -> None:
         groups_lock = asyncio.Lock()
         logger.info("search_enabled_sources=%s", ",".join(_active_source_order()))
 
-        async def _run_and_publish(source: str, scraper, coro, message: str) -> None:
+        async def _run_and_publish(source: str, scraper, factory, message: str) -> None:
             await search_task_store.update_progress(task_id, message=message)
+
+            async def _on_partial(products: list[Product]) -> None:
+                async with groups_lock:
+                    groups_by_source[source] = _build_group(
+                        source, products, error=None, status="loading_more"
+                    )
+                    partial = [
+                        groups_by_source[s]
+                        for s in _active_source_order()
+                        if s in groups_by_source
+                    ]
+                await search_task_store.update_progress(
+                    task_id, message=message, groups=partial
+                )
+
+            coro = factory(on_partial=_on_partial)
             products, error, status = await _safe_search(scraper, coro)
             if source == "other" and not products and not error:
                 error = get_last_error()
                 if error:
                     status = "empty_with_diagnostics"
+
+            if status:
+                final_status = status
+            elif products:
+                final_status = "complete"
+            elif error:
+                final_status = "error"
+            else:
+                final_status = "empty"
+
             async with groups_lock:
-                groups_by_source[source] = _build_group(source, products, error, status)
+                groups_by_source[source] = _build_group(source, products, error, final_status)
                 partial = [
                     groups_by_source[s]
                     for s in _active_source_order()
@@ -225,7 +251,7 @@ async def run_search_task(task_id: str, request: SearchRequest) -> None:
                     _run_and_publish(
                         "wildberries",
                         wb.scraper,
-                        wb.scraper.search(search_request),
+                        lambda *, on_partial: wb.scraper.search(search_request, on_partial=on_partial),
                         "Wildberries…",
                     )
                 )
@@ -236,7 +262,7 @@ async def run_search_task(task_id: str, request: SearchRequest) -> None:
                     _run_and_publish(
                         "yandex_market",
                         yandex_market.scraper,
-                        yandex_market.scraper.search(search_request),
+                        lambda *, on_partial: yandex_market.scraper.search(search_request, on_partial=on_partial),
                         "Яндекс Маркет…",
                     )
                 )
@@ -247,7 +273,11 @@ async def run_search_task(task_id: str, request: SearchRequest) -> None:
                     _run_and_publish(
                         "other",
                         None,
-                        search_other_sources(search_request, original_query=processed.original),
+                        lambda *, on_partial: search_other_sources(
+                            search_request,
+                            original_query=processed.original,
+                            on_partial=on_partial,
+                        ),
                         "Другие источники…",
                     )
                 )
@@ -258,7 +288,7 @@ async def run_search_task(task_id: str, request: SearchRequest) -> None:
                     _run_and_publish(
                         "ozon",
                         ozon.scraper,
-                        ozon.scraper.search(search_request),
+                        lambda *, on_partial: ozon.scraper.search(search_request, on_partial=on_partial),
                         "Ozon: браузер проходит WAF (до 35 с)…",
                     )
                 )

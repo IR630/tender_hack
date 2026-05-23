@@ -97,6 +97,66 @@ async def _start_browser() -> uc.Browser:
     return await uc.start(**start_kwargs)
 
 
+async def _set_ozon_city(browser: uc.Browser, *, city_name: str) -> bool:
+    """Simulate city selection via Ozon's UI so regional prices are applied."""
+    try:
+        tab = await browser.get(OZON_HOME_URL)
+        await tab.sleep(2.0)
+
+        location_btn = None
+        for selector in (
+            'div[data-widget="locationSelector"]',
+            'button[aria-label*="город"]',
+        ):
+            try:
+                location_btn = await tab.select(selector)
+                if location_btn:
+                    break
+            except Exception:
+                pass
+
+        if not location_btn:
+            struct_logger.warning("ozon_set_city_no_btn", city_name=city_name)
+            return False
+
+        await location_btn.click()
+        await tab.sleep(1.5)
+
+        city_input = None
+        try:
+            city_input = await tab.select('input[placeholder*="город"]')
+        except Exception:
+            pass
+
+        if not city_input:
+            struct_logger.warning("ozon_set_city_no_input", city_name=city_name)
+            return False
+
+        await city_input.send_keys(city_name)
+        await tab.sleep(1.5)
+
+        suggestion = None
+        for sel in ('[data-index="0"]', 'ul[role="listbox"] li', '[class*="suggestion"] li'):
+            try:
+                suggestion = await tab.select(sel)
+                if suggestion:
+                    break
+            except Exception:
+                pass
+
+        if not suggestion:
+            struct_logger.warning("ozon_set_city_no_suggestion", city_name=city_name)
+            return False
+
+        await suggestion.click()
+        await tab.sleep(2.5)
+        struct_logger.info("ozon_set_city_ok", city_name=city_name)
+        return True
+    except Exception as exc:
+        struct_logger.warning("ozon_set_city_error", city_name=city_name, error=str(exc))
+        return False
+
+
 async def _warmup_browser(browser: uc.Browser, *, label: str) -> str | None:
     """Visit ozon.ru homepage to pass WAF and collect cookies before search."""
     if not settings.ozon_browser_warmup_home:
@@ -202,6 +262,7 @@ async def run_browser_pipeline[T](
     handler: Callable[[uc.Browser], Awaitable[tuple[T, str | None]]],
     *,
     timeout_seconds: float | None = None,
+    city_name: str | None = None,
 ) -> tuple[T | None, str | None]:
     """Single browser session under global semaphore — reuse cookies across navigations."""
     timeout = timeout_seconds or settings.ozon_pipeline_timeout_seconds
@@ -225,6 +286,10 @@ async def run_browser_pipeline[T](
             try:
                 browser = await _start_browser()
                 warmup_error = await _warmup_browser(browser, label=label)
+                if warmup_error != "waf" and city_name:
+                    city_ok = await _set_ozon_city(browser, city_name=city_name)
+                    if not city_ok:
+                        struct_logger.warning("ozon_set_city_failed", query=label, city=city_name)
                 if warmup_error == "waf" and attempt < max_attempts:
                     struct_logger.warning("ozon_browser_warmup_retry", query=label, attempt=attempt)
                     await asyncio.sleep(settings.ozon_browser_retry_delay_seconds)
@@ -274,6 +339,7 @@ async def _run_browser_session(
     wait_seconds: float,
     require_products: bool = False,
     require_product_detail: bool = False,
+    city_name: str | None = None,
 ) -> tuple[str, str | None]:
     async def _handler(browser: uc.Browser) -> tuple[str, str | None]:
         return await navigate_and_get_html(
@@ -289,6 +355,7 @@ async def _run_browser_session(
         label,
         _handler,
         timeout_seconds=wait_seconds + extra_timeout,
+        city_name=city_name,
     )
     if html is None:
         return "", error or "waf"
@@ -303,6 +370,7 @@ async def _fetch_url_uncached(
     wait_seconds: float,
     require_products: bool = False,
     require_product_detail: bool = False,
+    city_name: str | None = None,
 ) -> tuple[str, str | None]:
     html, error = await _run_browser_session(
         url,
@@ -310,6 +378,7 @@ async def _fetch_url_uncached(
         wait_seconds=wait_seconds,
         require_products=require_products,
         require_product_detail=require_product_detail,
+        city_name=city_name,
     )
     if error == "timeout":
         struct_logger.warning(
@@ -322,7 +391,12 @@ async def _fetch_url_uncached(
     return html, error
 
 
-async def _fetch_search_html_uncached(query: str) -> tuple[str, str | None]:
+async def _fetch_search_html_uncached(
+    query: str, region: str | None = None
+) -> tuple[str, str | None]:
+    from app.core.regions import resolve_region
+
+    city_name = resolve_region(region).ozon_city_name
     search_url = f"https://www.ozon.ru/search/?text={quote_plus(query)}"
     return await _fetch_url_uncached(
         search_url,
@@ -330,6 +404,7 @@ async def _fetch_search_html_uncached(query: str) -> tuple[str, str | None]:
         timeout_seconds=settings.ozon_browser_total_timeout_seconds,
         wait_seconds=settings.ozon_browser_wait_seconds,
         require_products=True,
+        city_name=city_name,
     )
 
 
@@ -346,6 +421,7 @@ async def fetch_product_html(url: str) -> tuple[str, str | None]:
 async def search_products(
     query: str,
     *,
+    region: str | None = None,
     skip_cache: bool = False,
 ) -> tuple[list[dict[str, Any]], str | None, str | None]:
     """Return (products, error_message, source_status)."""
@@ -354,12 +430,13 @@ async def search_products(
 
         return await two_stage_parser.search(query, skip_cache=skip_cache)
 
+    cache_key = f"{region or 'default'}:{query}"
     if settings.ozon_browser_cache_enabled and not skip_cache:
-        cached = get_cached_products(query)
+        cached = get_cached_products(cache_key)
         if cached is not None:
             return cached, None, None
 
-    html, error = await _fetch_search_html_uncached(query)
+    html, error = await _fetch_search_html_uncached(query, region)
     if error in ("timeout", "waf"):
         return _waf_block_result()
     if error:
@@ -375,6 +452,6 @@ async def search_products(
         return [], "Ozon: товары не найдены на странице поиска", None
 
     if settings.ozon_browser_cache_enabled:
-        set_cached_products(query, products, ttl=settings.ozon_browser_cache_ttl_seconds)
+        set_cached_products(cache_key, products, ttl=settings.ozon_browser_cache_ttl_seconds)
 
     return products, None, None

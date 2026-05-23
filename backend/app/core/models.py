@@ -45,7 +45,9 @@ class SearchGroup(BaseModel):
     domains: list[str] = Field(default_factory=list)
     products: list[Product] = Field(default_factory=list)
     error: str | None = None
+    # status values: "loading_more" | "complete" | "empty" | "error" | source-specific (e.g. "blocked_by_waf")
     status: str | None = None
+    expected_max: int = 15  # UI hint for progress-bar / skeleton placeholders
 
 
 class SearchRequest(BaseModel):
