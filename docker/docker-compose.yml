@@ -3,23 +3,24 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.api
-    ports:
-      - "8000:8000"
-    # Explicit resolver: the host's upstream DNS is unreachable from inside
-    # containers here, so external names (search.wb.ru, basket CDN) fail to
-    # resolve. Point at a working resolver — swap for the team's internal DNS
-    # on the production server.
+      network: host
+    network_mode: host
+    # Host networking avoids broken Docker port publishing with some VPN/tun setups
+    # (TCP connects but responses never return through the userland proxy).
     dns:
       - 1.1.1.1
       - 8.8.8.8
     environment:
-      REDIS_URL: redis://redis:6379/0
-      SEARXNG_URL: http://searxng:8080
+      REDIS_URL: redis://127.0.0.1:6379/0
+      SEARXNG_URL: http://127.0.0.1:8080
+      MEILI_URL: http://127.0.0.1:7700
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-dev-master-key}
+      OZON_USE_BROWSER: ${OZON_USE_BROWSER:-false}
     depends_on:
       - redis
       - searxng
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -28,36 +29,37 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.frontend
-    ports:
-      - "5173:80"
+      network: host
+    network_mode: host
     depends_on:
       - api
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    network_mode: host
+    command: redis-server --port 6379
     volumes:
       - redis_data:/data
 
   searxng:
     image: searxng/searxng:latest
-    ports:
-      - "8080:8080"
+    network_mode: host
     volumes:
       - ./searxng:/etc/searxng
     environment:
       SEARXNG_BASE_URL: http://localhost:8080/
 
+  meilisearch:
+    image: getmeili/meilisearch:latest
+    network_mode: host
+    environment:
+      MEILI_ENV: development
+      MEILI_NO_ANALYTICS: "true"
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-dev-master-key}
+    command: meilisearch --http-addr 127.0.0.1:7700
+    volumes:
+      - meili_data:/meili_data
+
 volumes:
   redis_data:
-
-networks:
-  # WB (and other upstreams via DDoS-Guard) sit behind a path with MTU < 1500.
-  # The host does PMTU discovery fine, but the NATed container path is a PMTU
-  # black hole: TCP connects, but the large TLS ServerHello is dropped and the
-  # handshake hangs. Clamping the bridge MTU to 1400 avoids oversized packets.
-  default:
-    driver: bridge
-    driver_opts:
-      com.docker.network.driver.mtu: "1400"
+  meili_data:

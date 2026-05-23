@@ -1,25 +1,21 @@
-"""Wildberries scraper.
+"""Wildberries scraper — low-footprint mode.
 
-Strategy (see docs/architecture and live findings):
-- Search via the public ``search.wb.ru`` JSON API. We use the **v4** endpoint
-  on purpose: newer versions (v9) enforce a proof-of-work challenge
-  (``x-pow`` header) and truncate the body, while v4 still serves full results
-  as long as realistic browser headers are present. This is our justified
-  rate-limit / anti-bot workaround; a PoW solver is the documented fallback if
-  v4 is ever closed.
-- Prices live in ``sizes[0].price.product`` (kopecks). Images and full
-  characteristics live on the ``basket-NN.wbbasket.ru`` CDN, where the host
-  number is not a stable formula, so we resolve it by probing (cheap HEAD,
-  memoized per volume).
-- Characteristics (an extra request per item) are fetched only for the top-K
-  results, which the search API already returns in relevance order.
+One ``search.wb.ru`` request per cache miss. Images are built from the volume
+hint table (no CDN HEAD probes). Card enrichment and Playwright are disabled to
+avoid burning the egress IP.
 """
+
+from __future__ import annotations
 
 import asyncio
 import logging
+import random
+import time
+from dataclasses import dataclass
 
-import httpx
+from curl_cffi import requests as curl_requests
 
+from app.core.cache import cache_get, cache_set
 from app.core.config import settings
 from app.core.models import Product, SearchRequest
 from app.core.regions import resolve_region
@@ -40,22 +36,12 @@ BROWSER_HEADERS = {
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
         "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     ),
+    "x-userid": "0",
 }
 
-# How many products to return, and how many of them to enrich with full
-# characteristics. Both bounded to keep latency and request volume in check.
 MAX_RESULTS = 30
-ENRICH_TOP_K = 12
-
-# Concurrency cap for CDN probes / card.json fetches.
-_MAX_CONCURRENCY = 10
-
-# basket host probe bounds (basket-01 .. basket-50 currently exist).
 _BASKET_MIN, _BASKET_MAX = 1, 50
 
-# Hint table: upper-bound volume (inclusive) -> basket host. Accurate for
-# low/mid volumes; the probe corrects stale high-end entries. Used only to
-# start the probe near the right host. Volume = nm // 100000.
 _HOST_HINT_RANGES: list[tuple[int, int]] = [
     (143, 1), (287, 2), (431, 3), (719, 4), (1007, 5), (1061, 6), (1115, 7),
     (1169, 8), (1313, 9), (1601, 10), (1655, 11), (1919, 12), (2045, 13),
@@ -65,21 +51,76 @@ _HOST_HINT_RANGES: list[tuple[int, int]] = [
     (7733, 32), (8141, 33), (8549, 34), (8957, 35),
 ]
 
-# vol -> resolved host (or None if no host serves it). Process-wide memo.
-_basket_memo: dict[int, int | None] = {}
+_session: curl_requests.Session | None = None
+_rate_lock = asyncio.Lock()
+_last_wb_request_at = 0.0
+_circuit_open_until = 0.0
 
 
-def _price_rub(product: dict) -> int:
-    """Sale price in whole rubles, or 0 if unavailable."""
+@dataclass
+class _SearchResponse:
+    products: list[dict]
+    status_code: int
+    pow_header: str | None = None
+    error: str | None = None
+
+
+def _get_session() -> curl_requests.Session:
+    global _session
+    if _session is None:
+        _session = curl_requests.Session(impersonate="chrome120")
+    return _session
+
+
+def _reset_session() -> None:
+    global _session
+    _session = None
+
+
+def reset_session_for_tests() -> None:
+    global _last_wb_request_at, _circuit_open_until
+    _reset_session()
+    _last_wb_request_at = 0.0
+    _circuit_open_until = 0.0
+
+
+def _circuit_is_open() -> bool:
+    return time.monotonic() < _circuit_open_until
+
+
+def _trip_circuit() -> None:
+    global _circuit_open_until
+    _circuit_open_until = time.monotonic() + settings.wb_circuit_breaker_seconds
+    logger.error(
+        "WB circuit breaker open for %ss after block response",
+        settings.wb_circuit_breaker_seconds,
+    )
+
+
+async def _throttle_wb() -> None:
+    global _last_wb_request_at
+    async with _rate_lock:
+        interval = settings.wb_min_request_interval_seconds
+        jitter = random.uniform(0, interval * 0.2)
+        wait = interval + jitter - (time.monotonic() - _last_wb_request_at)
+        if wait > 0:
+            await asyncio.sleep(wait)
+        _last_wb_request_at = time.monotonic()
+
+
+def _cache_key(region: str, query: str) -> str:
+    return f"wb:search:{region}:{query.strip().lower()}"
+
+
+def _price_kopecks(product: dict) -> int:
     sizes = product.get("sizes") or []
     if sizes:
         price = (sizes[0] or {}).get("price") or {}
         kopecks = price.get("product") or price.get("total") or price.get("basic")
         if kopecks:
-            return int(kopecks) // 100
-    # Legacy fallback (older API shapes).
+            return int(kopecks)
     legacy = product.get("salePriceU") or product.get("priceU")
-    return int(legacy) // 100 if legacy else 0
+    return int(legacy) if legacy else 0
 
 
 def _host_hint(vol: int) -> int:
@@ -89,41 +130,123 @@ def _host_hint(vol: int) -> int:
     return _HOST_HINT_RANGES[-1][1] + 1
 
 
-def _probe_order(vol: int) -> list[int]:
-    """Hosts to probe, starting at the hint and expanding outward."""
-    hint = max(_BASKET_MIN, min(_host_hint(vol), _BASKET_MAX))
-    order, seen = [], set()
-    for radius in range(_BASKET_MAX - _BASKET_MIN + 1):
-        for host in (hint + radius, hint - radius):
-            if _BASKET_MIN <= host <= _BASKET_MAX and host not in seen:
-                seen.add(host)
-                order.append(host)
-    return order
-
-
-async def _resolve_host(client: httpx.AsyncClient, nm: int) -> int | None:
-    """Find the basket host serving ``nm``'s media, memoized per volume."""
+def _host_for_nm(nm: int) -> int:
     vol = nm // 100000
-    if vol in _basket_memo:
-        return _basket_memo[vol]
-
-    part = nm // 1000
-    for host in _probe_order(vol):
-        url = f"{BASKET_HOST_FMT.format(host=host)}/vol{vol}/part{part}/{nm}/images/big/1.webp"
-        try:
-            resp = await client.head(url)
-        except httpx.HTTPError:
-            continue
-        if resp.status_code == 200:
-            _basket_memo[vol] = host
-            return host
-    _basket_memo[vol] = None
-    return None
+    return max(_BASKET_MIN, min(_host_hint(vol), _BASKET_MAX))
 
 
 def _image_url(host: int, nm: int) -> str:
     vol, part = nm // 100000, nm // 1000
     return f"{BASKET_HOST_FMT.format(host=host)}/vol{vol}/part{part}/{nm}/images/big/1.webp"
+
+
+def _http_error_message(status_code: int, body: str) -> str:
+    if status_code == 429:
+        return (
+            "HTTP 429: антибот Wildberries (rate-limit или IP). "
+            "Подождите или используйте российский IP без VPN."
+        )
+    if status_code == 498:
+        return "HTTP 498: домашний антибот Wildberries заблокировал IP."
+    snippet = body.strip().replace("\n", " ")[:120]
+    return f"HTTP {status_code}: {snippet or 'пустой ответ'}"
+
+
+def _log_search_diagnosis(pow_header: str | None, products: list[dict], query: object) -> None:
+    pow_header = pow_header or ""
+    if products:
+        if "status=invalid" in pow_header:
+            logger.info(
+                "WB search OK: %d products for %r (PoW header present, results served anyway)",
+                len(products),
+                query,
+            )
+        return
+    if "status=invalid" in pow_header:
+        logger.error(
+            "WB search returned 0 products for %r with PoW challenge (x-pow=%s...)",
+            query,
+            pow_header[:80],
+        )
+    else:
+        logger.warning("WB search returned 0 products for %r with HTTP 200", query)
+
+
+def _fetch_search_sync(params: dict[str, object]) -> _SearchResponse:
+    query = params.get("query")
+    headers = {
+        **BROWSER_HEADERS,
+        "x-queryid": f"qid{int(time.time() * 1000)}",
+    }
+
+    last_block: _SearchResponse | None = None
+    for attempt in range(2):
+        try:
+            response = _get_session().get(
+                SEARCH_URL,
+                params=params,
+                headers=headers,
+                timeout=settings.scraper_timeout_seconds,
+            )
+        except curl_requests.RequestsError as exc:
+            logger.error("WB search network error for %r: %r", query, exc)
+            return _SearchResponse([], status_code=0, error=f"Сеть: {exc}")
+
+        pow_header = response.headers.get("x-pow") or response.headers.get("X-Pow")
+        if response.status_code in {429, 498}:
+            last_block = _SearchResponse(
+                [],
+                status_code=response.status_code,
+                pow_header=pow_header,
+                error=_http_error_message(response.status_code, response.text),
+            )
+            logger.warning(
+                "WB search blocked for %r: HTTP %s (attempt %s/2)",
+                query,
+                response.status_code,
+                attempt + 1,
+            )
+            _reset_session()
+            if attempt == 0:
+                time.sleep(0.5)
+                headers["x-queryid"] = f"qid{int(time.time() * 1000)}"
+                continue
+            _trip_circuit()
+            return last_block
+
+        if response.status_code != 200:
+            logger.error("WB search FAILED for %r: HTTP %s", query, response.status_code)
+            return _SearchResponse(
+                [],
+                status_code=response.status_code,
+                pow_header=pow_header,
+                error=_http_error_message(response.status_code, response.text),
+            )
+
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            logger.error("WB search non-JSON body for %r: %s", query, exc)
+            return _SearchResponse(
+                [],
+                status_code=response.status_code,
+                pow_header=pow_header,
+                error="Wildberries вернул не-JSON ответ",
+            )
+
+        products = (payload.get("products") or [])[:MAX_RESULTS]
+        _log_search_diagnosis(pow_header, products, query)
+        if products:
+            return _SearchResponse(products, status_code=response.status_code, pow_header=pow_header)
+
+        return _SearchResponse(
+            [],
+            status_code=response.status_code,
+            pow_header=pow_header,
+            error="Wildberries вернул пустой каталог",
+        )
+
+    return last_block or _SearchResponse([], status_code=429, error=_http_error_message(429, ""))
 
 
 def _base_characteristics(product: dict) -> dict[str, str]:
@@ -135,70 +258,10 @@ def _base_characteristics(product: dict) -> dict[str, str]:
     return chars
 
 
-async def _fetch_card_characteristics(
-    client: httpx.AsyncClient, host: int, nm: int
-) -> dict[str, str]:
-    """Pull the full name/value characteristics from the basket card.json."""
-    vol, part = nm // 100000, nm // 1000
-    url = f"{BASKET_HOST_FMT.format(host=host)}/vol{vol}/part{part}/{nm}/info/ru/card.json"
-    try:
-        resp = await client.get(url)
-        resp.raise_for_status()
-        card = resp.json()
-    except (httpx.HTTPError, ValueError):
-        return {}
-
-    chars: dict[str, str] = {}
-    if card.get("subj_name"):
-        chars["Категория"] = str(card["subj_name"])
-    option_groups = [card.get("options") or []]
-    option_groups += [g.get("options") or [] for g in (card.get("grouped_options") or [])]
-    for options in option_groups:
-        for opt in options:
-            name, value = opt.get("name"), opt.get("value")
-            if name and value:
-                chars[str(name)] = str(value)
-    return chars
-
-
-def _log_search_diagnosis(resp: httpx.Response, products: list[dict], query: object) -> None:
-    """Explain a 200-OK search response — especially when it yields no products.
-
-    WB ships an ``x-pow`` Proof-of-Work challenge header on the v4 endpoint. As
-    of the last live probe v4 still serves full results even when the challenge
-    is unsolved, but if WB tightens that (returning ``products: []`` until the
-    PoW is solved) this is where we say so explicitly instead of reporting a
-    bare "0 results".
-    """
-    pow_header = resp.headers.get("x-pow", "")
-    pow_challenged = "status=invalid" in pow_header
-    if products:
-        if pow_challenged:
-            logger.info(
-                "WB search OK: %d raw products for %r (unsolved PoW challenge "
-                "present in x-pow, but v4 served results anyway)",
-                len(products), query,
-            )
-        return
-    if pow_challenged:
-        logger.error(
-            "WB search returned 0 products for %r: unsolved Proof-of-Work "
-            "challenge (x-pow=%s...). v4 is now PoW-gated for this request and "
-            "needs a solver. See the wb-api-endpoints note.",
-            query, pow_header[:80],
-        )
-    else:
-        logger.warning(
-            "WB search returned 0 products for %r with HTTP 200 and no PoW "
-            "header — genuinely no matches, or the response shape changed.",
-            query,
-        )
-
-
 def _build_product(raw: dict, image_url: str, characteristics: dict[str, str]) -> Product | None:
     nm = raw.get("id")
     name = raw.get("name")
-    price = _price_rub(raw)
+    price = _price_kopecks(raw)
     if not nm or not name or price <= 0:
         return None
 
@@ -217,123 +280,94 @@ def _build_product(raw: dict, image_url: str, characteristics: dict[str, str]) -
     )
 
 
+def _assemble_products(raw_products: list[dict]) -> list[Product]:
+    products: list[Product] = []
+    for raw in raw_products:
+        nm = raw.get("id")
+        if not nm or not raw.get("name") or _price_kopecks(raw) <= 0:
+            continue
+        host = _host_for_nm(int(nm))
+        product = _build_product(
+            raw,
+            _image_url(host, int(nm)),
+            _base_characteristics(raw),
+        )
+        if product is not None:
+            products.append(product)
+    return products
+
+
+async def _load_cached_products(region: str, query: str) -> list[Product] | None:
+    if not settings.wb_cache_enabled:
+        return None
+    cached = await asyncio.to_thread(cache_get, _cache_key(region, query))
+    if cached is None:
+        return None
+    logger.info("WB cache hit for query=%r region=%r", query, region)
+    return [Product.model_validate(item) for item in cached]
+
+
+async def _store_cached_products(region: str, query: str, products: list[Product]) -> None:
+    if not settings.wb_cache_enabled or not products:
+        return
+    payload = [product.model_dump(mode="json") for product in products]
+    await asyncio.to_thread(cache_set, _cache_key(region, query), payload)
+
+
 class WildberriesScraper(BaseScraper):
     source = "wildberries"
 
-    async def _fetch_search(self, client: httpx.AsyncClient, params: dict) -> list[dict]:
-        """Call the search API and log precisely where/why a run yields no data.
-
-        Returns ``[]`` on any failure so the orchestrator degrades gracefully,
-        but every failure mode is logged distinctly — HTTP-layer error, WAF /
-        rate-limit block, non-JSON body, PoW challenge — so a 0-results run is
-        never silent. Persistent rate limits are an infra concern (caching /
-        proxies), not something to burn the request budget retrying.
-        """
-        query = params.get("query")
-        for attempt in range(2):
-            try:
-                resp = await client.get(SEARCH_URL, params=params)
-            except httpx.TimeoutException as exc:
-                logger.error(
-                    "WB search FAILED at request stage for %r: timeout after %ss (%r)",
-                    query, settings.scraper_timeout_seconds, exc,
-                )
-                return []
-            except httpx.HTTPError as exc:
-                logger.error(
-                    "WB search FAILED at request stage for %r: network error %r",
-                    query, exc,
-                )
-                return []
-
-            if resp.status_code == 429:
-                if attempt == 0:
-                    logger.warning(
-                        "WB search rate-limited (HTTP 429) for %r, retrying once...", query
-                    )
-                    await asyncio.sleep(0.7)
-                    continue
-                logger.error(
-                    "WB search BLOCKED for %r: HTTP 429 after retry. WB's WAF is "
-                    "rejecting this client — most likely the TLS fingerprint "
-                    "(plain httpx is always 429'd here, while "
-                    "curl_cffi(impersonate='chrome') passes), or an IP rate-limit "
-                    "/ non-RU IP. This is the current cause of 0 Wildberries "
-                    "results. See the wb-api-endpoints note.",
-                    query,
-                )
-                return []
-            if resp.status_code != 200:
-                logger.error(
-                    "WB search FAILED for %r: unexpected HTTP %s", query, resp.status_code
-                )
-                return []
-
-            try:
-                payload = resp.json()
-            except ValueError as exc:
-                logger.error(
-                    "WB search FAILED at parse stage for %r: HTTP 200 but body is "
-                    "not JSON (%s); first 200 chars: %r",
-                    query, exc, resp.text[:200],
-                )
-                return []
-
-            products = (payload.get("products") or [])[:MAX_RESULTS]
-            _log_search_diagnosis(resp, products, query)
-            return products
-        return []
-
     async def search(self, request: SearchRequest) -> list[Product]:
+        self.clear_error()
+        region = resolve_region(request.region)
+        query = request.query.strip()
+        if not query:
+            return []
+
+        cached = await _load_cached_products(region.id, query)
+        if cached is not None:
+            return cached
+
+        if _circuit_is_open():
+            self.set_error(
+                "Wildberries временно недоступен (слишком много блокировок). "
+                f"Повторите через {int(settings.wb_circuit_breaker_seconds // 60)} мин."
+            )
+            return []
+
         params = {
-            "query": request.query,
+            "query": query,
             "resultset": "catalog",
-            "dest": resolve_region(request.region).wb_dest,
+            "dest": region.wb_dest,
             "curr": "rub",
             "lang": "ru",
             "appType": 1,
             "page": 1,
         }
-        timeout = httpx.Timeout(settings.scraper_timeout_seconds)
-        async with httpx.AsyncClient(
-            headers=BROWSER_HEADERS, timeout=timeout, follow_redirects=True
-        ) as client:
-            raw_products = await self._fetch_search(client, params)
-            if not raw_products:
-                # _fetch_search already logged the precise reason.
-                return []
 
-            sem = asyncio.Semaphore(_MAX_CONCURRENCY)
+        await _throttle_wb()
+        attempt = await asyncio.to_thread(_fetch_search_sync, params)
+        if attempt.error:
+            self.set_error(attempt.error)
+            logger.warning("WB scraper failed for query=%r: %s", query, attempt.error)
+            return []
 
-            async def assemble(index: int, raw: dict) -> Product | None:
-                nm = raw.get("id")
-                # Skip media work for items that won't survive _build_product
-                # anyway (no id / name / price) — saves CDN requests.
-                if not nm or not raw.get("name") or _price_rub(raw) <= 0:
-                    return None
-                async with sem:
-                    host = await _resolve_host(client, nm)
-                    image_url = _image_url(host, nm) if host is not None else ""
-                    chars = _base_characteristics(raw)
-                    if host is not None and index < ENRICH_TOP_K:
-                        chars.update(await _fetch_card_characteristics(client, host, nm))
-                return _build_product(raw, image_url, chars)
+        products = _assemble_products(attempt.products)
+        if not products:
+            self.set_error("Wildberries вернул товары, но ни один не прошёл фильтрацию (цена/поля)")
+            return []
 
-            results = await asyncio.gather(
-                *(assemble(i, raw) for i, raw in enumerate(raw_products))
-            )
+        await _store_cached_products(region.id, query, products)
 
-        products = [p for p in results if p is not None]
         usable = sum(
-            1 for r in raw_products
-            if r.get("id") and r.get("name") and _price_rub(r) > 0
+            1 for raw in attempt.products if raw.get("id") and raw.get("name") and _price_kopecks(raw) > 0
         )
-        missing_image = sum(1 for p in products if not p.image_url)
         logger.info(
-            "WB scraper funnel for %r: %d raw -> %d usable (%d dropped: missing "
-            "id/name/price) -> %d returned (%d without image: basket host unresolved)",
-            request.query, len(raw_products), usable,
-            len(raw_products) - usable, len(products), missing_image,
+            "WB scraper funnel for %r: %d raw -> %d usable -> %d returned (1 HTTP request)",
+            query,
+            len(attempt.products),
+            usable,
+            len(products),
         )
         return products
 

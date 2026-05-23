@@ -23,9 +23,15 @@ export function SourceGroup({ group }: SourceGroupProps) {
       </header>
 
       {group.products.length === 0 ? (
-        <p className="text-sm text-slate-400">
-          Пока нет данных — модуль источника в разработке.
-        </p>
+        <div className="space-y-1 text-sm">
+          {group.error ? (
+            <p className="rounded-md border border-amber-900/60 bg-amber-950/30 px-3 py-2 text-amber-200">
+              {group.error}
+            </p>
+          ) : (
+            <p className="text-slate-400">Пока нет данных — модуль источника в разработке.</p>
+          )}
+        </div>
       ) : (
         <ul className="space-y-3">
           {group.products.slice(0, 10).map((product) => (

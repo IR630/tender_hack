@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import html
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -9,8 +10,10 @@ from difflib import SequenceMatcher
 from urllib.parse import quote_plus, urljoin, urlparse
 
 from curl_cffi import requests as curl_requests
-from selectolax.parser import HTMLParser
+from selectolax.parser import HTMLParser, Node
 
+from app.core.cache import cache_get, cache_set
+from app.core.config import settings
 from app.core.models import Product, SearchRequest
 from app.core.regions import resolve_region
 from app.scrapers.base import BaseScraper
@@ -28,8 +31,6 @@ DEFAULT_HEADERS = {
     "Upgrade-Insecure-Requests": "1",
 }
 
-STOP_SIGNAL_COUNT = 5
-MAX_PAGES = 15
 PAGE_DELAY_SEC = 0.8
 CARD_FETCH_WORKERS = 4
 CARD_FETCH_TIMEOUT = 30
@@ -276,6 +277,20 @@ def _enrich_products(products: list[Product]) -> list[Product]:
     return [product for product in enriched if product is not None]
 
 
+def _clean_title_text(text: str) -> str:
+    cleaned = html.unescape(text).replace("\xa0", " ").replace("&nbsp;", " ")
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    cleaned = re.sub(r"(?<=[A-Za-z0-9&])(?=[А-Яа-яЁё])", " ", cleaned)
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def _parse_snippet_title(title_el: Node) -> str:
+    raw_attr = title_el.attributes.get("title")
+    if raw_attr:
+        return _clean_title_text(raw_attr)
+    return _clean_title_text(title_el.text(strip=True))
+
+
 def _extract_characteristics(title: str) -> dict[str, str]:
     characteristics: dict[str, str] = {}
     parts = [part.strip() for part in title.split(",") if part.strip()]
@@ -351,7 +366,7 @@ def _parse_search_html(html: str) -> list[Product]:
         if not title_el:
             continue
 
-        title = title_el.text(strip=True)
+        title = _parse_snippet_title(title_el)
         if not title:
             continue
 
@@ -426,16 +441,14 @@ def _collect_paginated_products(
     fetch_page_html,
     query: str,
     *,
-    stop_signal_count: int = STOP_SIGNAL_COUNT,
-    max_pages: int = MAX_PAGES,
+    max_pages: int | None = None,
 ) -> list[Product]:
+    page_limit = max_pages if max_pages is not None else settings.ym_search_max_pages
     accepted: list[Product] = []
     seen_urls: set[str] = set()
     seen_titles: list[str] = []
-    duplicate_signals = 0
-    garbage_signals = 0
 
-    for page in range(1, max_pages + 1):
+    for page in range(1, page_limit + 1):
         html = fetch_page_html(page)
         if not html or _is_blocked(html):
             logger.warning("Yandex Market page %s blocked or empty for query=%r", page, query)
@@ -450,26 +463,14 @@ def _collect_paginated_products(
         for product in page_products:
             verdict = _classify_listing(product, query, seen_urls, seen_titles)
             if verdict == "duplicate":
-                duplicate_signals += 1
                 page_stats.duplicates += 1
             elif verdict == "garbage":
-                garbage_signals += 1
                 page_stats.garbage += 1
             else:
                 accepted.append(product)
                 seen_urls.add(_product_url_key(product.product_url))
                 seen_titles.append(_normalize_title(product.title))
                 page_stats.accepted += 1
-
-            if duplicate_signals >= stop_signal_count or garbage_signals >= stop_signal_count:
-                logger.info(
-                    "Yandex Market stop at page=%s: duplicates=%s garbage=%s accepted=%s",
-                    page,
-                    duplicate_signals,
-                    garbage_signals,
-                    len(accepted),
-                )
-                return accepted
 
         logger.debug(
             "Yandex Market page=%s accepted=%s duplicates=%s garbage=%s total=%s",
@@ -480,7 +481,37 @@ def _collect_paginated_products(
             len(accepted),
         )
 
+        if page_stats.accepted == 0:
+            logger.info(
+                "Yandex Market stop at page=%s: no new products (duplicates=%s garbage=%s)",
+                page,
+                page_stats.duplicates,
+                page_stats.garbage,
+            )
+            break
+
     return accepted
+
+
+def _cache_key(region: str, query: str) -> str:
+    return f"ym:search:{region}:{query.strip().lower()}"
+
+
+async def _load_cached_products(region: str, query: str) -> list[Product] | None:
+    if not settings.ym_cache_enabled:
+        return None
+    cached = await asyncio.to_thread(cache_get, _cache_key(region, query))
+    if cached is None:
+        return None
+    logger.info("Yandex Market cache hit for query=%r region=%r", query, region)
+    return [Product.model_validate(item) for item in cached]
+
+
+async def _store_cached_products(region: str, query: str, products: list[Product]) -> None:
+    if not settings.ym_cache_enabled or not products:
+        return
+    payload = [product.model_dump(mode="json") for product in products]
+    await asyncio.to_thread(cache_set, _cache_key(region, query), payload)
 
 
 def _apply_yandex_region(session: curl_requests.Session, yandex_market_id: int) -> None:
@@ -543,7 +574,7 @@ async def _fetch_with_playwright(query: str, yandex_market_id: int) -> list[Prod
         await page.goto(f"{BASE_URL}/", wait_until="domcontentloaded", timeout=30000)
         await page.wait_for_timeout(1500)
 
-        for page_num in range(1, MAX_PAGES + 1):
+        for page_num in range(1, settings.ym_search_max_pages + 1):
             search_url = f"{BASE_URL}/search?text={quote_plus(query)}&page={page_num}"
             await page.goto(search_url, wait_until="networkidle", timeout=60000)
             html = await page.content()
@@ -567,22 +598,37 @@ class YandexMarketScraper(BaseScraper):
     source = "yandex_market"
 
     async def search(self, request: SearchRequest) -> list[Product]:
+        self.clear_error()
         query = request.query.strip()
         if not query:
             return []
 
         region = resolve_region(request.region)
 
+        cached = await _load_cached_products(region.id, query)
+        if cached is not None:
+            return cached
+
         try:
             products = await asyncio.to_thread(_fetch_products_sync, query, region.yandex_market_id)
             if products:
+                await _store_cached_products(region.id, query, products)
                 return products
-        except Exception:
+            self.set_error("Яндекс Маркет не нашёл подходящих товаров по запросу")
+        except Exception as exc:
+            self.set_error(f"curl_cffi: {exc}")
             logger.exception("Yandex Market curl_cffi fetch failed for query=%r", query)
 
         try:
-            return await _fetch_with_playwright(query, region.yandex_market_id)
-        except Exception:
+            products = await _fetch_with_playwright(query, region.yandex_market_id)
+            if products:
+                await _store_cached_products(region.id, query, products)
+                return products
+            if not self.last_error:
+                self.set_error("Playwright fallback не вернул товаров (возможна капча или нет Chromium)")
+            return []
+        except Exception as exc:
+            self.set_error(f"Playwright: {exc}")
             logger.exception("Yandex Market Playwright fallback failed for query=%r", query)
             return []
 

@@ -18,3 +18,7 @@ engines:
     disabled: false
   - name: brave
     disabled: false
+  - name: yandex
+    disabled: false
+  - name: mail.ru
+    disabled: false
