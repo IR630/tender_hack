@@ -1,17 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from urllib.parse import urlparse
-
-from other_public_scraper.models import OtherExtractResult
-
-ApiSearch = Callable[[str, str, int], Awaitable[list[OtherExtractResult]]]
-
-
-def _domain(url: str) -> str:
-    host = urlparse(url).netloc.lower()
-    return host[4:] if host.startswith("www.") else host
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,7 +12,6 @@ class DomainStrategy:
     canonical_group: str | None = None
     has_listing_adapter: bool = False
     has_challenge_solver: bool = False
-    api_search: ApiSearch | None = None
 
     def supports_domain(self, domain: str) -> bool:
         return any(domain == item or domain.endswith("." + item) for item in self.domains)
@@ -37,10 +26,9 @@ class DomainStrategy:
         return self.canonical_group or _domain(url)
 
 
-async def _search_mvideo(query: str, region_id: str, limit: int) -> list[OtherExtractResult]:
-    from other_public_scraper.pipelines.mvideo_api import search_mvideo_products
-
-    return await search_mvideo_products(query, region_id, limit=limit)
+def _domain(url: str) -> str:
+    host = urlparse(url).netloc.lower()
+    return host[4:] if host.startswith("www.") else host
 
 
 DOMAIN_STRATEGIES: tuple[DomainStrategy, ...] = (
@@ -63,7 +51,6 @@ DOMAIN_STRATEGIES: tuple[DomainStrategy, ...] = (
         domains=("mvideo.ru",),
         categories=("orgtech",),
         has_listing_adapter=True,
-        api_search=_search_mvideo,
     ),
     DomainStrategy(
         name="dns-shop",
@@ -112,20 +99,3 @@ def listing_domain_key(url: str) -> str:
     if strategy is not None:
         return strategy.listing_key(url)
     return _domain(url)
-
-
-async def search_api_products(
-    query: str,
-    region_id: str,
-    category: str,
-    *,
-    limit: int,
-) -> list[OtherExtractResult]:
-    products: list[OtherExtractResult] = []
-    for strategy in DOMAIN_STRATEGIES:
-        if strategy.api_search is None or not strategy.supports_category(category):
-            continue
-        products.extend(await strategy.api_search(query, region_id, limit))
-        if len(products) >= limit:
-            break
-    return products[:limit]

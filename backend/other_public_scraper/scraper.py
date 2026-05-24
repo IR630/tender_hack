@@ -13,12 +13,10 @@ from other_public_scraper.config import (
     settings,
 )
 from other_public_scraper.diagnostics import active_diagnostics, reset_diagnostics
-from other_public_scraper.domain_strategies import listing_domain_key, search_api_products
+from other_public_scraper.domain_strategies import listing_domain_key
 from other_public_scraper.ml.query_classifier import classify_query
 from other_public_scraper.ml.relevance_filter import cosine_similarity_batch, rank_candidates
 from other_public_scraper.models import MeiliProductDoc, OtherExtractResult, UrlCandidate
-from other_public_scraper.optics_seeds import optics_seed_candidates
-from other_public_scraper.orgtech_seeds import orgtech_seed_candidates
 from other_public_scraper.pipelines.catalog_harvest import _extract_links, expand_listing_candidates
 from other_public_scraper.pipelines.page_extractor import (
     extract_product_from_html,
@@ -457,10 +455,6 @@ async def _search_once(
         limit=settings.other_max_searxng_urls,
         category=category,
     )
-    if category == "orgtech":
-        live_hits = _merge_candidates(live_hits, orgtech_seed_candidates(query, region_obj.id))
-    if re.search(r"очк", query, re.IGNORECASE) and len(live_hits) < 6:
-        live_hits = _merge_candidates(live_hits, optics_seed_candidates(query))
     diag.live_urls = len(live_hits)
     diag.live_sample = [c.url[:90] for c in live_hits[:5]]
     meili_hits: list[UrlCandidate] = []
@@ -488,21 +482,7 @@ async def _search_once(
     grid_products: list[OtherExtractResult] = []
     if category != "unknown":
         grid_products = await _collect_listing_grid_products(candidates, query, category)
-        api_products = await search_api_products(
-            query,
-            region_obj.id,
-            category,
-            limit=min(5, settings.other_max_results),
-        )
-        if api_products:
-            for item in api_products:
-                if not _is_title_relevant(item.title, query, category):
-                    continue
-                if not _passes_category_sanity(item.title, query, category):
-                    continue
-                item.relevance_score = _title_relevance_score(item.title, query, category)
-                grid_products.append(item)
-    
+
     harvested_candidates = candidates
     if grid_products and len(grid_products) < settings.other_max_results:
         try:

@@ -16,12 +16,12 @@ def test_e2e4_regional_hosts_share_listing_key():
     )
 
 
-def test_mvideo_strategy_declares_api_search():
+def test_mvideo_strategy_is_listing_only():
     strategy = strategy_for_url("https://www.mvideo.ru/komputernye-aksessuary-24/myshi-183")
 
     assert strategy is not None
     assert strategy.name == "mvideo"
-    assert strategy.api_search is not None
+    assert strategy.has_listing_adapter
     assert strategy.supports_category("orgtech")
 
 

@@ -4,16 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import re
 
 from other_public_scraper.config import settings
 from other_public_scraper.diagnostics import active_diagnostics
-from other_public_scraper.grocery_seeds import is_grocery_query
 from other_public_scraper.models import UrlCandidate
 from other_public_scraper.pipelines.bing_search import search_bing_urls
 from other_public_scraper.pipelines.ddg_search import search_ddg_urls
 from other_public_scraper.pipelines.searxng import search_other_urls
-from other_public_scraper.pipelines.sitemap_search import search_sitemap_urls
 from other_public_scraper.pipelines.yahoo_search import search_yahoo_urls
 from other_public_scraper.query_variants import search_query_variants
 from other_public_scraper.url_heuristics import (
@@ -107,48 +104,8 @@ async def search_live_urls(
             )
             return bing_hits[:limit]
 
-    _, sitemap_hits = await _run_provider(
-        "sitemap",
-        asyncio.create_task(search_sitemap_urls(query, limit=limit)),
-    )
-    source_counts["sitemap"] = len(sitemap_hits)
-    if sitemap_hits:
-        diag = active_diagnostics()
-        diag.live_provider = "sitemap"
-        diag.live_urls = len(sitemap_hits)
-        diag.live_sample = [item.url[:90] for item in sitemap_hits[:5]]
-        logger.info(
-            "other_live_search query=%r fallback=sitemap count=%d",
-            query,
-            len(sitemap_hits),
-        )
-        return sitemap_hits[:limit]
-
     logger.warning("other_live_search query=%r all_providers=0 sources=%s", query, source_counts)
     return []
-
-
-async def _search_ddg_supplement(query: str, *, limit: int) -> list[UrlCandidate]:
-    if not settings.other_ddg_enabled:
-        return []
-    per_query = max(5, limit // 3)
-    variants = search_query_variants(query)
-    latin = next(
-        (v for v in variants if re.search(r"iphone\s+\d", v, re.IGNORECASE)),
-        query,
-    )
-    tasks = [
-        search_ddg_urls(f"{latin} купить", limit=per_query),
-        search_ddg_urls(f"{latin} site:cmstore.ru", limit=4),
-        search_ddg_urls(f"{latin} site:re-store.ru", limit=4),
-        search_ddg_urls(f"{latin} site:shop.mts.ru", limit=4),
-    ]
-    groups = await asyncio.gather(*tasks, return_exceptions=True)
-    merged: list[UrlCandidate] = []
-    for group in groups:
-        if isinstance(group, list):
-            merged.extend(group)
-    return merged
 
 
 async def search_live_urls_expanded(
@@ -157,7 +114,8 @@ async def search_live_urls_expanded(
     limit: int | None = None,
     category: str = "unknown",
 ) -> list[UrlCandidate]:
-    """Run live search across query variants and orgtech shop supplements."""
+    """Run live search across query variants (search-only discovery)."""
+    _ = category
     limit = limit or settings.other_max_searxng_urls
     variants = search_query_variants(query)
     variant_tasks = [
@@ -165,9 +123,6 @@ async def search_live_urls_expanded(
     ]
     groups = await asyncio.gather(*variant_tasks)
     merged = _merge_live(*groups)
-    if category == "orgtech":
-        supplemental = await _search_ddg_supplement(query, limit=limit)
-        merged = _merge_live(merged, supplemental)
     merged = filter_and_sort_candidates(merged)
     merged = [item for item in merged if url_quality_score(item.url) >= 0][:limit]
     return merged
