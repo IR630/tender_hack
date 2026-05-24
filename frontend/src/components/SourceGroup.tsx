@@ -31,12 +31,7 @@ function productLabel(count: number): string {
 }
 
 export function SourceGroup({ group, pending = false }: SourceGroupProps) {
-  const totalCount = Math.max(group.count, group.products.length);
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const shownCount = Math.min(visibleCount, group.products.length);
-  const remainingCount = Math.max(0, totalCount - shownCount);
-  const nextBatchSize = Math.min(PAGE_SIZE, remainingCount);
-  const nextVisibleCount = Math.min(shownCount + nextBatchSize, totalCount);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
 
   const firstProductUrl = group.products[0]?.product_url;
   useEffect(() => {
@@ -138,7 +133,7 @@ export function SourceGroup({ group, pending = false }: SourceGroupProps) {
               )}
             </div>
           )}
-        </ul>
+        </>
       )}
     </section>
   );
