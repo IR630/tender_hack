@@ -2,7 +2,6 @@ from other_public_scraper.models import UrlCandidate
 from other_public_scraper.url_heuristics import (
     filter_and_sort_candidates,
     is_rejected_url,
-    is_ru_domain,
     url_quality_score,
 )
 

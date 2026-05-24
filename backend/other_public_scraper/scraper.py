@@ -16,8 +16,8 @@ from other_public_scraper.diagnostics import active_diagnostics, reset_diagnosti
 from other_public_scraper.ml.query_classifier import classify_query
 from other_public_scraper.ml.relevance_filter import cosine_similarity_batch, rank_candidates
 from other_public_scraper.models import MeiliProductDoc, OtherExtractResult, UrlCandidate
-from other_public_scraper.orgtech_seeds import orgtech_seed_candidates
 from other_public_scraper.optics_seeds import optics_seed_candidates
+from other_public_scraper.orgtech_seeds import orgtech_seed_candidates
 from other_public_scraper.pipelines.catalog_harvest import _extract_links, expand_listing_candidates
 from other_public_scraper.pipelines.page_extractor import (
     extract_product_from_html,
@@ -216,6 +216,21 @@ async def _fetch_and_extract(
     return [extracted]
 
 
+_LISTING_SLUGS = frozenset({
+    "naushniki",
+    "smartfony",
+    "noutbuki",
+    "planshety",
+    "monitory",
+    "shiny",
+    "tyres",
+    "tyre",
+    "catalog.html",
+    "iphone-15",
+    "iphone-16",
+})
+
+
 def _is_listing_grid_url(url: str) -> bool:
     path = urlparse(url).path.lower().rstrip("/")
     if is_rejected_url(url) or is_product_page_url(url):
@@ -225,13 +240,12 @@ def _is_listing_grid_url(url: str) -> bool:
         return True
     if "catalog" in segments and len(segments) <= 4:
         return True
-    catalog_slugs = {
-        "shiny", "tyres", "tyre", "catalog.html",
-        "iphone-15", "iphone-16", "smartfony",
-    }
-    if segments[-1] in catalog_slugs:
+    if any(segment in _LISTING_SLUGS for segment in segments):
         return True
-    if any(token in path for token in ("/smartfony/", "/iphone-", "/apple_iphone/")):
+    if any(token in path for token in ("/smartfony/", "/iphone-", "/apple_iphone/", "/naushniki/")):
+        return True
+    # shallow category paths like /naushniki/ or /brand_apple/
+    if len(segments) <= 2 and not segments[-1].isdigit():
         return True
     return False
 
@@ -308,7 +322,7 @@ async def _collect_listing_grid_products(
 
 
 _FAST_LIMIT = 5
-_FULL_LIMIT = 15
+_FULL_LIMIT = settings.other_max_results
 
 
 async def _search_once(

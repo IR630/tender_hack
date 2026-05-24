@@ -266,6 +266,20 @@ async def navigate_and_get_html(
                 )
         except Exception:
             pass
+    if require_products and ok:
+        try:
+            from app.scrapers.ozon_seo_common import _extract_broad_from_html_cards
+
+            html = await tab.get_content()
+            for _ in range(15):
+                cards = _extract_broad_from_html_cards(html, max_results=48)
+                if len(cards) >= settings.ozon_ml_top_k:
+                    break
+                await tab.scroll_down(1200)
+                await tab.sleep(1.0)
+                html = await tab.get_content()
+        except Exception:
+            pass
     if ok:
         return html, None
     if _is_challenge(html or ""):

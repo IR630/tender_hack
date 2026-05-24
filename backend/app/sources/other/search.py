@@ -30,7 +30,7 @@ def _to_product(item) -> Product:
         title=item.title,
         description=item.description,
         price=int(item.price_rub) * 100,
-        image_url=item.image_url,
+        image_url=item.image_url or "",
         product_url=item.product_url,
         characteristics=dict(item.characteristics),
         relevance_score=float(item.relevance_score),

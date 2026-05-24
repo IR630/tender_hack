@@ -66,6 +66,12 @@ def _domain(url: str) -> str:
     return host[4:] if host.startswith("www.") else host
 
 
+_RE_STORE_CATALOG_RE = re.compile(r"/catalog/([A-Za-z0-9_-]+)/?", re.IGNORECASE)
+_CATEGORY_SLUGS = frozenset({
+    "naushniki", "smartfony", "noutbuki", "planshety", "monitory", "shiny", "tyres",
+})
+
+
 def _is_product_url(url: str) -> bool:
     if is_rejected_url(url):
         return False
@@ -82,8 +88,16 @@ def _is_product_url(url: str) -> bool:
     if _PRODUCT_PATH_RE.search(path):
         return True
     segments = [part for part in path.split("/") if part]
-    if "catalog" in segments and len(segments) >= 5 and re.search(r"\d", segments[-1]):
-        return True
+    if "catalog" in segments and segments[-1]:
+        last = segments[-1]
+        if last.lower() in _CATEGORY_SLUGS or last.lower().startswith("brand_"):
+            return False
+        if len(segments) == 2:
+            return True
+        if last.isdigit() or re.search(r"\d{4,}", last):
+            return True
+        if len(segments) >= 5 and re.search(r"\d", last):
+            return True
     return False
 
 
@@ -119,6 +133,18 @@ def _extract_links(html: str, base_url: str) -> tuple[list[str], list[str]]:
             products.append(full)
         elif _CATALOG_PATH_RE.search(urlparse(full).path) or urlparse(full).path in ("", "/"):
             catalogs.append(full)
+
+    for match in _RE_STORE_CATALOG_RE.finditer(html):
+        sku = match.group(1)
+        if sku.lower() in _CATEGORY_SLUGS or sku.lower().startswith("brand_"):
+            continue
+        full = urljoin(base_url, f"/catalog/{sku}/")
+        if full in seen or is_rejected_url(full):
+            continue
+        seen.add(full)
+        if _is_product_url(full):
+            products.append(full)
+
     return products, catalogs
 
 

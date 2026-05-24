@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import random
 import time
 from dataclasses import dataclass, field
 
@@ -11,9 +12,9 @@ from app.core.config import settings
 from app.scrapers.wb.circuit import circuit_is_open, reset_circuit_for_tests, trip_circuit
 from app.scrapers.wb.config import (
     DEFAULT_BROWSER_HEADERS,
-    DEFAULT_WB_PRESET,
     MAX_RESULTS,
     SEARCH_URL,
+    WB_USER_PRESETS,
     WBUserPreset,
 )
 from app.scrapers.wb.logging_utils import log_wb_request
@@ -26,6 +27,21 @@ from app.scrapers.wb.proxy import (
 )
 
 struct_logger = structlog.get_logger(component="wb_session")
+
+# Throttled WB responses sometimes return a single unrelated product in data.products.
+_MIN_CATALOG_PRODUCTS = 5
+
+
+def _parse_search_products(payload: dict) -> list:
+    """Prefer legacy top-level products; accept data.products only for full catalogs."""
+    top = payload.get("products") or []
+    if top:
+        return top[:MAX_RESULTS]
+    data = payload.get("data")
+    nested = data.get("products") or [] if isinstance(data, dict) else []
+    if len(nested) >= _MIN_CATALOG_PRODUCTS:
+        return nested[:MAX_RESULTS]
+    return []
 
 
 def _failure_priority(response: WBSearchResponse) -> tuple[int, int]:
@@ -61,7 +77,7 @@ class WBSession:
     """curl_cffi async session with cookie warmup before search API calls."""
 
     user_id: str = "default"
-    preset: WBUserPreset = field(default_factory=lambda: DEFAULT_WB_PRESET)
+    preset: WBUserPreset = field(default_factory=lambda: random.choice(WB_USER_PRESETS))
     proxy_session_id: str = field(default_factory=lambda: f"wb{int(time.time())}")
     _session: AsyncSession | None = field(default=None, init=False, repr=False)
     created_at: float | None = field(default=None, init=False)
@@ -111,6 +127,7 @@ class WBSession:
         self._session = None
         self._warmed = False
         self.created_at = None
+        self.preset = random.choice(WB_USER_PRESETS)
         reset_exit_ip_cache()
 
     async def _ensure_session(self) -> AsyncSession:
@@ -300,7 +317,7 @@ class WBSession:
                 error="Wildberries вернул не-JSON ответ",
             )
 
-        products = (payload.get("products") or [])[:MAX_RESULTS]
+        products = _parse_search_products(payload)
         if not products:
             return WBSearchResponse(
                 [],

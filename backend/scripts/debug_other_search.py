@@ -22,8 +22,8 @@ REGION = sys.argv[2] if len(sys.argv) > 2 else "moscow"
 
 
 async def main() -> None:
-    from app.sources.other.search import search_other_sources
     from app.core.models import SearchRequest
+    from app.sources.other.search import search_other_sources
 
     print(f"\n=== Диагностика other: query={QUERY!r} region={REGION} ===\n")
     request = SearchRequest(query=QUERY, region=REGION)

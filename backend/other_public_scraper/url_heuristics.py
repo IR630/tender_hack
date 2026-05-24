@@ -32,6 +32,7 @@ _REJECT_PATH_RE = re.compile(
     r"|/brand/"
     r"|/articles?/"
     r"|/blog/"
+    r"|/responses/"
     r")",
     re.IGNORECASE,
 )
@@ -102,12 +103,29 @@ def is_ru_domain(url: str) -> bool:
     return host.endswith(".ru") or host.endswith(".рф")
 
 
+def _looks_like_product_path(path: str) -> bool:
+    if _PRODUCT_PATH_RE.search(path):
+        return True
+    segments = [part for part in path.split("/") if part]
+    if "catalog" in segments and len(segments) == 2:
+        slug = segments[-1].lower()
+        if slug.startswith("brand_"):
+            return False
+        listing_slugs = {
+            "naushniki", "smartfony", "noutbuki", "planshety", "monitory", "shiny", "tyres",
+        }
+        if slug in listing_slugs:
+            return False
+        return True
+    return False
+
+
 def url_quality_score(url: str) -> float:
     """Higher = more likely a purchasable product page. -1 = reject."""
     if is_rejected_url(url):
         return -1.0
     path = urlparse(url).path
-    has_product = bool(_PRODUCT_PATH_RE.search(url))
+    has_product = _looks_like_product_path(path)
     has_catalog = bool(_CATALOG_PATH_RE.search(path))
     if has_catalog and not has_product:
         return -1.0

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from app.scrapers import ozon_browser
 
-
 WAF_BLOCK_HTML = """
 <!DOCTYPE html><html lang="ru"><head>
 <title>Доступ ограничен</title>
