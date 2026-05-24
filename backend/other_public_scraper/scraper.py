@@ -13,6 +13,7 @@ from other_public_scraper.config import (
     settings,
 )
 from other_public_scraper.diagnostics import active_diagnostics, reset_diagnostics
+from other_public_scraper.domain_strategies import listing_domain_key, search_api_products
 from other_public_scraper.ml.query_classifier import classify_query
 from other_public_scraper.ml.relevance_filter import cosine_similarity_batch, rank_candidates
 from other_public_scraper.models import MeiliProductDoc, OtherExtractResult, UrlCandidate
@@ -387,10 +388,10 @@ def _unique_domain_listing_candidates(candidates: list[UrlCandidate]) -> list[Ur
     seen_domains: set[str] = set()
     unique: list[UrlCandidate] = []
     for candidate in grid_candidates:
-        domain = _domain(candidate.url)
-        if domain in seen_domains:
+        domain_key = listing_domain_key(candidate.url)
+        if domain_key in seen_domains:
             continue
-        seen_domains.add(domain)
+        seen_domains.add(domain_key)
         unique.append(candidate)
     return unique
 
@@ -419,7 +420,7 @@ async def _collect_listing_grid_products(
         )
         accepted = _accept_listing_products(listing, query, category, seen)
         products.extend(accepted)
-        if products:
+        if len(products) >= settings.other_max_results:
             break
     products.sort(key=lambda item: item.relevance_score, reverse=True)
     return products
@@ -456,8 +457,8 @@ async def _search_once(
         limit=settings.other_max_searxng_urls,
         category=category,
     )
-    if category == "orgtech" and len(live_hits) < 4:
-        live_hits = _merge_candidates(live_hits, orgtech_seed_candidates(query))
+    if category == "orgtech":
+        live_hits = _merge_candidates(live_hits, orgtech_seed_candidates(query, region_obj.id))
     if re.search(r"очк", query, re.IGNORECASE) and len(live_hits) < 6:
         live_hits = _merge_candidates(live_hits, optics_seed_candidates(query))
     diag.live_urls = len(live_hits)
@@ -484,7 +485,23 @@ async def _search_once(
     diag.candidates_merged = len(candidates)
 
     candidates.sort(key=lambda c: url_quality_score(c.url), reverse=True)
-    grid_products = await _collect_listing_grid_products(candidates, query, category)
+    grid_products: list[OtherExtractResult] = []
+    if category != "unknown":
+        grid_products = await _collect_listing_grid_products(candidates, query, category)
+        api_products = await search_api_products(
+            query,
+            region_obj.id,
+            category,
+            limit=min(5, settings.other_max_results),
+        )
+        if api_products:
+            for item in api_products:
+                if not _is_title_relevant(item.title, query, category):
+                    continue
+                if not _passes_category_sanity(item.title, query, category):
+                    continue
+                item.relevance_score = _title_relevance_score(item.title, query, category)
+                grid_products.append(item)
     
     harvested_candidates = candidates
     if grid_products and len(grid_products) < settings.other_max_results:
@@ -598,6 +615,19 @@ async def _search_once(
                         t.cancel()
                 break
 
+    if category == "unknown":
+        extra_grid = await _collect_listing_grid_products(candidates, query, category, max_pages=3)
+        added_grid = 0
+        for item in extra_grid:
+            key = item.product_url.split("#")[0]
+            if key in seen_product_urls:
+                continue
+            seen_product_urls.add(key)
+            products.append(item)
+            added_grid += 1
+            if len(products) >= settings.other_max_results or added_grid >= 2:
+                break
+
     # If grid alone had enough, try fast partial from grid
     if on_partial and not fast_published and products:
         try:
@@ -606,10 +636,14 @@ async def _search_once(
         except Exception:
             pass
 
+    hard_cap_per_domain = settings.other_max_per_domain
+    if category == "unknown":
+        hard_cap_per_domain = min(hard_cap_per_domain, 2)
+
     products = _cap_per_domain(
         products,
         max_total=settings.other_max_results,
-        hard_cap_per_domain=settings.other_max_per_domain,
+        hard_cap_per_domain=hard_cap_per_domain,
     )
 
     logger.info(

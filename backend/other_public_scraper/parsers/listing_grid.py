@@ -10,6 +10,7 @@ from selectolax.parser import HTMLParser
 from ozon_public_scraper.parsers.price import parse_price
 
 PRICE_RE = re.compile(r"(\d[\d\s\u202f]*)\s*(?:₽|&#8381;|руб\.?)", re.IGNORECASE)
+_MIN_PLAUSIBLE_PRICE_RUB = 50
 _PRODUCT_HREF_RE = re.compile(
     r"/product/|/goods/|/item/|/catalog/detail/|/catalog/item/",
     re.IGNORECASE,
@@ -36,26 +37,38 @@ def _img_src(node) -> str:
     return ""
 
 
+def _parse_price_match(raw: str) -> int | None:
+    parsed = parse_price(raw)
+    if parsed is not None and _MIN_PLAUSIBLE_PRICE_RUB <= parsed <= 5_000_000:
+        return parsed
+    spaced_prices = re.findall(r"\d{1,3}(?:[\s\u202f]\d{3})+", raw or "")
+    for candidate in reversed(spaced_prices):
+        parsed = parse_price(candidate)
+        if parsed is not None and _MIN_PLAUSIBLE_PRICE_RUB <= parsed <= 5_000_000:
+            return parsed
+    return None
+
+
 def _price_from_node(node) -> int | None:
     if node is None:
         return None
     for key in ("data-product-price", "data-price", "content"):
         raw = node.attributes.get(key)
         if raw:
-            parsed = parse_price(str(raw))
+            parsed = _parse_price_match(str(raw))
             if parsed:
                 return parsed
     text = node.text(separator=" ", strip=True)
     if text:
-        match = PRICE_RE.search(text)
-        if match:
-            parsed = parse_price(match.group(1))
+        for match in PRICE_RE.finditer(text):
+            parsed = _parse_price_match(match.group(1))
             if parsed:
                 return parsed
     chunk = node.html or ""
-    match = PRICE_RE.search(chunk[:4000])
-    if match:
-        return parse_price(match.group(1))
+    for match in PRICE_RE.finditer(chunk[:4000]):
+        parsed = _parse_price_match(match.group(1))
+        if parsed:
+            return parsed
     return None
 
 
@@ -116,6 +129,21 @@ def _parse_plain_price(text: str) -> int | None:
     return value
 
 
+def _e2e4_price_from_card(card) -> int | None:
+    price_node = (
+        card.css_first(".price-block__price")
+        or card.css_first(".price-block")
+        or card.css_first(".product-price")
+        or card.css_first(".price-current")
+    )
+    if price_node:
+        return _price_from_node(price_node) or _parse_plain_price(price_node.text(strip=True))
+    match = re.search(r"Код:\s*\d+\s+(\d[\d\s\u202f]*)\s*₽", card.text(separator=" ", strip=True))
+    if match:
+        return parse_price(match.group(1))
+    return None
+
+
 def _extract_technocity_cards(html: str, page_url: str, *, max_items: int) -> list[dict]:
     tree = HTMLParser(html)
     results: list[dict] = []
@@ -156,6 +184,46 @@ def _extract_technocity_cards(html: str, page_url: str, *, max_items: int) -> li
     return results
 
 
+def _extract_citilink_cards(html: str, page_url: str, *, max_items: int) -> list[dict]:
+    tree = HTMLParser(html)
+    results: list[dict] = []
+    seen: set[str] = set()
+    for card in tree.css('[data-meta-name="SnippetProductVerticalLayout"]'):
+        link = card.css_first('a[href^="/product/"][title]')
+        if link is None:
+            continue
+        href = (link.attributes.get("href") or "").strip()
+        if not href or "/otzyvy/" in href:
+            continue
+        product_url = urljoin(page_url, href)
+        key = product_url.split("#")[0]
+        if key in seen:
+            continue
+        title = (link.attributes.get("title") or "").strip()
+        if len(title) < 5:
+            continue
+        price_node = card.css_first("[data-meta-price]") or card.css_first(
+            '[data-meta-name="Snippet__price"]'
+        )
+        price_rub = _price_from_node(price_node)
+        if price_rub is None:
+            continue
+        image_url = urljoin(page_url, _img_src(card))
+        seen.add(key)
+        results.append(
+            {
+                "title": title,
+                "description": "",
+                "price_rub": price_rub,
+                "image_url": image_url,
+                "product_url": product_url,
+            }
+        )
+        if len(results) >= max_items:
+            break
+    return results
+
+
 def _extract_e2e4_cards(html: str, page_url: str, *, max_items: int) -> list[dict]:
     tree = HTMLParser(html)
     results: list[dict] = []
@@ -176,11 +244,7 @@ def _extract_e2e4_cards(html: str, page_url: str, *, max_items: int) -> list[dic
         for _ in range(10):
             if parent is None:
                 break
-            price_node = parent.css_first(".product-price") or parent.css_first(".price-current")
-            if price_node:
-                price_rub = _price_from_node(price_node) or _parse_plain_price(price_node.text(strip=True))
-            if price_rub is None:
-                price_rub = _price_from_node(parent)
+            price_rub = _e2e4_price_from_card(parent)
             if price_rub is not None:
                 break
             parent = parent.parent
@@ -280,14 +344,14 @@ def _extract_generic_cards(html: str, page_url: str, *, max_items: int) -> list[
         title = link.attributes.get("title") or link.text(separator=" ", strip=True)
         if len(title) < 5:
             continue
+        price_rub = _price_from_node(link)
         parent = link.parent
-        price_rub = None
         for _ in range(8):
+            if price_rub is not None:
+                break
             if parent is None:
                 break
             price_rub = _price_from_node(parent)
-            if price_rub is not None:
-                break
             parent = parent.parent
         if price_rub is None:
             continue
@@ -328,6 +392,10 @@ def extract_dom_listing_products(
             return items
     if host == "technocity.ru" or host.endswith(".technocity.ru"):
         items = _extract_technocity_cards(html, page_url, max_items=max_items)
+        if items:
+            return items
+    if host == "citilink.ru" or host.endswith(".citilink.ru"):
+        items = _extract_citilink_cards(html, page_url, max_items=max_items)
         if items:
             return items
     if "e2e4online.ru" in host:

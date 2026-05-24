@@ -26,6 +26,15 @@ _CATEGORY_TITLE_RE = re.compile(
     re.IGNORECASE,
 )
 PRICE_RE = re.compile(r"(\d[\d\s\u202f]*)\s*(?:₽|руб\.?)", re.IGNORECASE)
+_MIN_PLAUSIBLE_PRICE_RUB = 50
+
+
+def _first_plausible_price(text: str) -> int | None:
+    for match in PRICE_RE.finditer(text or ""):
+        parsed = parse_price(match.group(1))
+        if parsed is not None and parsed >= _MIN_PLAUSIBLE_PRICE_RUB:
+            return parsed
+    return None
 
 
 def _extract_price_from_html(html: str, raw: dict) -> int | None:
@@ -33,16 +42,28 @@ def _extract_price_from_html(html: str, raw: dict) -> int | None:
     if price_rub is None:
         price_rub = parse_price(str(raw.get("price_raw") or ""))
     if price_rub is not None:
-        return int(price_rub)
+        price_rub = int(price_rub)
+        if price_rub >= _MIN_PLAUSIBLE_PRICE_RUB:
+            return price_rub
+        text_price = _first_plausible_price(
+            " ".join(
+                str(raw.get(key) or "")
+                for key in ("title", "description", "price_raw")
+            )
+        )
+        if text_price is not None:
+            return text_price
     for pattern in (_ITEMPROP_PRICE_RE, _PRICE_ATTR_RE):
         match = pattern.search(html[:120000])
         if match:
             parsed = parse_price(match.group(1))
-            if parsed:
+            if parsed and parsed >= _MIN_PLAUSIBLE_PRICE_RUB:
                 return parsed
-    match = PRICE_RE.search(html[:120000])
-    if match:
-        return parse_price(match.group(1))
+    plausible = _first_plausible_price(html[:120000])
+    if plausible is not None:
+        return plausible
+    if price_rub is not None and price_rub > 0:
+        return int(price_rub)
     return None
 
 

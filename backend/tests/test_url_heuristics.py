@@ -37,3 +37,7 @@ def test_url_quality_product_beats_catalog():
     product = url_quality_score("https://citilink.ru/product/iphone-se-123/")
     catalog = url_quality_score("https://re-store.ru/smartfony/apple/iphone-se/")
     assert product > catalog
+
+
+def test_rejects_beeline_service_tariff_pages():
+    assert is_rejected_url("https://novosibirsk.beeline.ru/customers/products/home/internet/")

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -21,6 +22,18 @@ class Settings(BaseSettings):
 
     app_name: str = "Tender Hack Price Aggregator"
     debug: bool = False
+
+    @field_validator("debug", mode="before")
+    @classmethod
+    def _parse_debug_mode(cls, value):
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"release", "prod", "production"}:
+                return False
+            if normalized in {"dev", "development", "debug"}:
+                return True
+        return value
+
     redis_url: str = "redis://localhost:6379/0"
     searxng_url: str = "http://localhost:8080"
     cache_ttl_seconds: int = 6 * 60 * 60

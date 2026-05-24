@@ -33,6 +33,7 @@ _REJECT_PATH_RE = re.compile(
     r"|/articles?/"
     r"|/blog/"
     r"|/responses/"
+    r"|/customers/products/"
     r")",
     re.IGNORECASE,
 )

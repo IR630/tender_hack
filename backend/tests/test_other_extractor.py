@@ -32,6 +32,25 @@ def test_extract_product_from_json_ld():
     assert item.image_url.startswith("https://")
 
 
+def test_extract_product_replaces_suspicious_one_ruble_price():
+    html = """
+    <html><head>
+      <meta property="og:title" content="Мужские трусы CK Flag 110 Материал: 95% ХЛОПОК 5% ЛАЙКРА 699 руб.">
+      <meta property="og:description" content="Мужские трусы CK Flag 110 Материал: 95% ХЛОПОК 5% ЛАЙКРА 699 руб.">
+      <meta property="product:price:amount" content="1">
+      <meta property="og:image" content="https://fit-trus.ru/test.jpg">
+    </head><body>
+      <div>Открыть на маркетплейсе 1 ₽</div>
+      <div>Мужские трусы CK Flag 110 Материал: 95% ХЛОПОК 5% ЛАЙКРА 699 руб.</div>
+    </body></html>
+    """
+
+    item = extract_product_from_html(html, "https://fit-trus.ru/product/test/")
+
+    assert item is not None
+    assert item.price_rub == 699
+
+
 LISTING_HTML = """
 <html><head>
 <script type="application/ld+json">{

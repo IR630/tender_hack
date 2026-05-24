@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from urllib.parse import urlparse
+from urllib.parse import quote_plus, urlparse
 
 from other_public_scraper.models import UrlCandidate
 
@@ -11,6 +11,11 @@ _IPHONE_QUERY_RE = re.compile(r"(?:айфон|iphone)\s*(\d{1,2})", re.IGNORECAS
 _MOUSE_QUERY_RE = re.compile(r"\b(?:мыш|mouse|мышк)", re.IGNORECASE)
 _KEYBOARD_QUERY_RE = re.compile(r"\b(?:клавиат|keyboard)", re.IGNORECASE)
 _PRINTER_QUERY_RE = re.compile(r"\b(?:принтер|printer|мфу)\b", re.IGNORECASE)
+_E2E4_REGION_HOSTS = {
+    "moscow": "moscow.e2e4online.ru",
+    "spb": "spb.e2e4online.ru",
+    "novosibirsk": "novosibirsk.e2e4online.ru",
+}
 
 
 def _domain(url: str) -> str:
@@ -18,32 +23,42 @@ def _domain(url: str) -> str:
     return host[4:] if host.startswith("www.") else host
 
 
-def orgtech_seed_candidates(query: str) -> list[UrlCandidate]:
+def _e2e4_catalog_urls(region_id: str | None, slug: str) -> list[str]:
+    urls: list[str] = []
+    host = _E2E4_REGION_HOSTS.get((region_id or "").strip().lower())
+    if host:
+        urls.append(f"https://{host}/catalog/{slug}/")
+    urls.append(f"https://www.e2e4online.ru/catalog/{slug}/")
+    return urls
+
+
+def orgtech_seed_candidates(query: str, region_id: str | None = None) -> list[UrlCandidate]:
     seeds: list[str] = []
 
     if _MOUSE_QUERY_RE.search(query):
         seeds.extend(
             [
-                "https://novosibirsk.e2e4online.ru/catalog/myshi-18/",
-                "https://www.e2e4online.ru/catalog/myshi-18/",
+                *_e2e4_catalog_urls(region_id, "myshi-18"),
                 "https://www.technocity.ru/catalog/13/",
                 "https://www.dns-shop.ru/catalog/17a8a69116404e77/mysi/",
+                "https://www.citilink.ru/catalog/myshi/",
+                "https://www.mvideo.ru/komputernye-aksessuary-24/myshi-183",
             ]
         )
     if _KEYBOARD_QUERY_RE.search(query):
         seeds.extend(
             [
-                "https://novosibirsk.e2e4online.ru/catalog/klaviatury-19/",
-                "https://www.e2e4online.ru/catalog/klaviatury-19/",
+                *_e2e4_catalog_urls(region_id, "klaviatury-19"),
                 "https://www.dns-shop.ru/catalog/17a89aab16404e77/klaviatury/",
+                "https://www.citilink.ru/search/?text=клавиатура",
             ]
         )
     if _PRINTER_QUERY_RE.search(query):
         seeds.extend(
             [
-                "https://novosibirsk.e2e4online.ru/catalog/printery-86/",
-                "https://www.e2e4online.ru/catalog/printery-86/",
+                *_e2e4_catalog_urls(region_id, "printery-86"),
                 "https://www.dns-shop.ru/catalog/17a8d26216404e77/printery/",
+                "https://www.citilink.ru/search/?text=принтер",
             ]
         )
 
@@ -63,7 +78,7 @@ def orgtech_seed_candidates(query: str) -> list[UrlCandidate]:
 
     return [
         UrlCandidate(
-            url=url,
+            url=quote_plus(url, safe=":/?=&%-._"),
             domain=_domain(url),
             title=query,
             snippet="",
