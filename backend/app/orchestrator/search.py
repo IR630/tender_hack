@@ -129,7 +129,10 @@ async def run_search(request: SearchRequest) -> SearchResponse:
     started = time.perf_counter()
     processed = await process_query(request.query)
     region = resolve_region(request.region)
-    search_request = SearchRequest(query=processed.corrected, region=region.id)
+    # Marketplaces (Ozon/WB/Yandex) have their own ideal synonymization — send the
+    # raw user query untouched. Only "other" sources get our processed/corrected query.
+    marketplace_request = SearchRequest(query=processed.original, region=region.id)
+    other_request = SearchRequest(query=processed.corrected, region=region.id)
     groups_by_source: dict[str, SearchGroup] = {}
     enabled = _enabled_sources()
     groups_lock = asyncio.Lock()
@@ -148,7 +151,7 @@ async def run_search(request: SearchRequest) -> SearchResponse:
     if "wildberries" in enabled:
         source_tasks.append(
             asyncio.create_task(
-                _run_one("wildberries", wb.scraper, wb.scraper.search(search_request))
+                _run_one("wildberries", wb.scraper, wb.scraper.search(marketplace_request))
             )
         )
     if "yandex_market" in enabled:
@@ -157,7 +160,7 @@ async def run_search(request: SearchRequest) -> SearchResponse:
                 _run_one(
                     "yandex_market",
                     yandex_market.scraper,
-                    yandex_market.scraper.search(search_request),
+                    yandex_market.scraper.search(marketplace_request),
                 )
             )
         )
@@ -167,14 +170,14 @@ async def run_search(request: SearchRequest) -> SearchResponse:
                 _run_one(
                     "other",
                     None,
-                    search_other_sources(search_request, original_query=processed.original),
+                    search_other_sources(other_request, original_query=processed.original),
                 )
             )
         )
     if "ozon" in enabled:
         source_tasks.append(
             asyncio.create_task(
-                _run_one("ozon", ozon.scraper, ozon.scraper.search(search_request))
+                _run_one("ozon", ozon.scraper, ozon.scraper.search(marketplace_request))
             )
         )
     if source_tasks:
@@ -192,7 +195,10 @@ async def run_search_task(task_id: str, request: SearchRequest) -> None:
     try:
         processed = await process_query(request.query)
         region = resolve_region(request.region)
-        search_request = SearchRequest(query=processed.corrected, region=region.id)
+        # Marketplaces (Ozon/WB/Yandex) have their own ideal synonymization — send the
+        # raw user query untouched. Only "other" sources get our processed/corrected query.
+        marketplace_request = SearchRequest(query=processed.original, region=region.id)
+        other_request = SearchRequest(query=processed.corrected, region=region.id)
         groups_by_source: dict[str, SearchGroup] = {}
         enabled = _enabled_sources()
         groups_lock = asyncio.Lock()
@@ -251,7 +257,7 @@ async def run_search_task(task_id: str, request: SearchRequest) -> None:
                     _run_and_publish(
                         "wildberries",
                         wb.scraper,
-                        lambda *, on_partial: wb.scraper.search(search_request, on_partial=on_partial),
+                        lambda *, on_partial: wb.scraper.search(marketplace_request, on_partial=on_partial),
                         "Wildberries…",
                     )
                 )
@@ -262,7 +268,7 @@ async def run_search_task(task_id: str, request: SearchRequest) -> None:
                     _run_and_publish(
                         "yandex_market",
                         yandex_market.scraper,
-                        lambda *, on_partial: yandex_market.scraper.search(search_request, on_partial=on_partial),
+                        lambda *, on_partial: yandex_market.scraper.search(marketplace_request, on_partial=on_partial),
                         "Яндекс Маркет…",
                     )
                 )
@@ -274,7 +280,7 @@ async def run_search_task(task_id: str, request: SearchRequest) -> None:
                         "other",
                         None,
                         lambda *, on_partial: search_other_sources(
-                            search_request,
+                            other_request,
                             original_query=processed.original,
                             on_partial=on_partial,
                         ),
@@ -288,7 +294,7 @@ async def run_search_task(task_id: str, request: SearchRequest) -> None:
                     _run_and_publish(
                         "ozon",
                         ozon.scraper,
-                        lambda *, on_partial: ozon.scraper.search(search_request, on_partial=on_partial),
+                        lambda *, on_partial: ozon.scraper.search(marketplace_request, on_partial=on_partial),
                         "Ozon: браузер проходит WAF (до 35 с)…",
                     )
                 )
