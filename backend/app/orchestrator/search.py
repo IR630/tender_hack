@@ -88,7 +88,6 @@ def _build_group(
     error: str | None = None,
     status: str | None = None,
 ) -> SearchGroup:
-    products = products[: settings.search_max_results_per_source]
     min_price = min((product.price for product in products), default=None)
     domains = sorted({product.source_domain for product in products if product.source_domain})
     return SearchGroup(

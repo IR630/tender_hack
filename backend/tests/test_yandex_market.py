@@ -237,8 +237,8 @@ def test_collect_paginated_products_caps_at_max_results() -> None:
         return page_html if page == 1 else ""
 
     products = _collect_paginated_products(fetch, "телефон", max_pages=3)
-    assert len(products) == MAX_RESULTS == 15
-    # Order is preserved (first 15 of the input feed).
+    assert len(products) == MAX_RESULTS == 20
+    # Order is preserved (first 20 of the input feed).
     for index, product in enumerate(products):
         assert product.product_url.endswith(f"/card/phone/{index}")
 
@@ -256,7 +256,7 @@ def test_collect_paginated_products_caps_across_pages() -> None:
         return pages.get(page, "")
 
     products = _collect_paginated_products(fetch, "телефон", max_pages=3)
-    assert len(products) == MAX_RESULTS == 15
+    assert len(products) == MAX_RESULTS == 20
 
 
 def test_collect_paginated_products_keeps_going_while_relevant() -> None:
