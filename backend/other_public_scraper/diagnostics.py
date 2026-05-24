@@ -28,46 +28,54 @@ class OtherSearchDiagnostics:
         if len(self.failure_samples) < 8:
             self.failure_samples.append(message)
 
+    def _has_search_block(self) -> bool:
+        for _, reason in self.searxng_unresponsive:
+            lowered = reason.lower()
+            if "captcha" in lowered or "too many requests" in lowered:
+                return True
+        return False
+
+    def _has_transport_errors(self) -> bool:
+        transport_markers = ("bad_decrypt", "ssl_", "ssl ", "tls", "connection", "timeout")
+        all_errors = self.yahoo_errors + self.bing_errors
+        return any(marker in error.lower() for error in all_errors for marker in transport_markers)
+
+    def _detail_summary(self) -> str | None:
+        details: list[str] = []
+        if self._has_search_block():
+            details.append("поисковики запросили CAPTCHA или включили ограничение по частоте")
+        if self._has_transport_errors():
+            details.append("часть источников ответила сетевой ошибкой")
+        if self.live_urls > 0 and self.fetch_ok and self.extract_ok == 0:
+            details.append("магазины не отдали карточки товаров в удобном для парсинга виде")
+        if not details:
+            return None
+        return "Кратко: " + "; ".join(details) + "."
+
     def format_user_message(self) -> str:
-        lines = ["Другие источники: 0 товаров. Диагностика:"]
+        lines = ["Другие источники: 0 товаров."]
 
         if self.timed_out:
-            lines.append(f"• Таймаут поиска ({self.query!r})")
-        if self.exception:
-            lines.append(f"• Ошибка: {self.exception}")
+            lines.append("Внешний поиск отвечает слишком долго.")
+        elif self.live_urls == 0 and self._has_search_block():
+            lines.append("Внешние поисковики временно ограничили автоматические запросы.")
+        elif self.live_urls == 0 and (
+            self.yahoo_errors or self.bing_errors or self.searxng_unresponsive
+        ):
+            lines.append("Не удалось получить результаты из внешнего веб-поиска.")
+        elif self.live_urls > 0 and self.extract_ok == 0:
+            lines.append("Ссылки нашлись, но магазины не отдали подходящие карточки товаров.")
+        elif self.exception:
+            lines.append("Во время поиска произошла внешняя ошибка.")
+        else:
+            lines.append("Не удалось получить данные из внешних источников.")
+
+        detail_summary = self._detail_summary()
+        if detail_summary:
+            lines.append(detail_summary)
 
         if self.live_urls == 0:
-            if self.yahoo_errors:
-                lines.append(f"• Yahoo: {self.yahoo_errors[0]}")
-            if self.bing_errors:
-                lines.append(f"• Bing: {self.bing_errors[0]}")
-            if self.searxng_unresponsive:
-                engines = ", ".join(f"{e[0]}({e[1]})" for e in self.searxng_unresponsive[:4])
-                lines.append(f"• SearXNG: движки недоступны — {engines}")
-            if not self.yahoo_errors and not self.bing_errors and not self.searxng_unresponsive:
-                lines.append("• Веб-поиск не вернул URL (проверьте SearXNG/интернет/VPN)")
-        else:
-            provider = self.live_provider or "web"
-            lines.append(f"• Поиск ({provider}): найдено {self.live_urls} URL")
-            for url in self.live_sample[:3]:
-                lines.append(f"  → {url}")
-
-        if self.candidates_ranked:
-            lines.append(
-                f"• Обработка: {self.candidates_ranked} URL → "
-                f"скачано {self.fetch_ok}, ошибок fetch {self.fetch_failed}, "
-                f"извлечено {self.extract_ok}, отфильтровано {self.extract_failed}"
-            )
-
-        if self.failure_samples:
-            lines.append("• Примеры отказов:")
-            for sample in self.failure_samples[:5]:
-                lines.append(f"  — {sample}")
-
-        if self.extract_failed and self.fetch_ok and self.extract_ok == 0:
-            lines.append(
-                "• Вероятная причина: антибот (401/429) или каталог без цены в HTML"
-            )
+            lines.append("Попробуйте повторить запрос чуть позже.")
 
         return "\n".join(lines)
 
