@@ -22,14 +22,49 @@ function nextBasketUrl(url: string): string | null {
   return url.replace(/basket-\d+/, `basket-${String(host + 1).padStart(2, "0")}`);
 }
 
+function proxiedImageUrl(url: string, sourceDomain: string): string {
+  if (!url.startsWith("http")) {
+    return url;
+  }
+  const params = new URLSearchParams({ url });
+  if (sourceDomain) {
+    params.set("domain", sourceDomain);
+  }
+  return `/api/images/proxy?${params.toString()}`;
+}
+
+function nextImageFallback(url: string): string | null {
+  const basket = nextBasketUrl(url);
+  if (basket) {
+    return basket;
+  }
+  const yandexMatch = url.match(
+    /^(https:\/\/avatars\.mds\.yandex\.net\/get-mpic\/\d+\/[^/]+)\/[^/]+$/,
+  );
+  if (yandexMatch) {
+    return `${yandexMatch[1]}/orig`;
+  }
+  return null;
+}
+
+function displayImageUrl(url: string, source: Product["source"], sourceDomain: string): string {
+  if (!url) {
+    return "";
+  }
+  if (source === "ozon" || source === "yandex_market") {
+    return proxiedImageUrl(url, sourceDomain);
+  }
+  return url;
+}
+
 export function ProductCard({ product }: ProductCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const [imageSrc, setImageSrc] = useState(product.image_url);
+  const [imageSrc, setImageSrc] = useState(displayImageUrl(product.image_url, product.source, product.source_domain));
   const hasDescription = product.description.trim().length > 0;
 
   useEffect(() => {
-    setImageSrc(product.image_url);
-  }, [product.image_url]);
+    setImageSrc(displayImageUrl(product.image_url, product.source, product.source_domain));
+  }, [product.image_url, product.source, product.source_domain]);
 
   return (
     <li className="rounded-input border border-rule bg-paper p-3 transition-colors hover:border-rule-2">
@@ -39,12 +74,28 @@ export function ProductCard({ product }: ProductCardProps) {
             src={imageSrc}
             alt=""
             loading="lazy"
+            referrerPolicy="no-referrer"
             className="h-16 w-16 shrink-0 rounded-input border border-rule bg-paper-3 object-cover"
             onError={() => {
-              const fallback = nextBasketUrl(imageSrc);
-              if (fallback) {
-                setImageSrc(fallback);
+              const rawUrl = product.image_url;
+              const proxied = displayImageUrl(rawUrl, product.source, product.source_domain);
+              if (imageSrc === proxied) {
+                const fallback = nextImageFallback(rawUrl);
+                if (fallback && fallback !== rawUrl) {
+                  setImageSrc(displayImageUrl(fallback, product.source, product.source_domain));
+                  return;
+                }
+                if (rawUrl.startsWith("http")) {
+                  setImageSrc(rawUrl);
+                  return;
+                }
               }
+              const basket = nextBasketUrl(imageSrc);
+              if (basket) {
+                setImageSrc(basket);
+                return;
+              }
+              setImageSrc("");
             }}
           />
         ) : (

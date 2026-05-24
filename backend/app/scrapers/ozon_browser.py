@@ -25,8 +25,6 @@ struct_logger = structlog.get_logger(component="ozon_browser")
 T = TypeVar("T")
 
 CHALLENGE_TITLES = ("Antibot Captcha", "Antibot Challenge Page", "Доступ ограничен")
-WAF_BLOCK_MARKERS = ("abt-challenge/incidents", "Похоже, нет", "fab_")
-WAF_BLOCK_MAX_HTML_LEN = 15_000
 OZON_HOME_URL = "https://www.ozon.ru/"
 OZON_WAF_STATUS = "blocked_by_waf"
 OZON_WAF_MESSAGE = "Ozon: доступ временно ограничен защитой маркетплейса"
@@ -41,17 +39,9 @@ def _is_challenge(html: str) -> bool:
     title = title_m.group(1).strip() if title_m else ""
     if title in CHALLENGE_TITLES:
         return True
-    if WAF_BLOCK_MARKERS[0] in html and len(html) < WAF_BLOCK_MAX_HTML_LEN:
+    if "Похоже, нет" in html and "fab_" in html:
         return True
-    if WAF_BLOCK_MARKERS[1] in html and WAF_BLOCK_MARKERS[2] in html:
-        return True
-    return len(html) < WAF_BLOCK_MAX_HTML_LEN and "antibot" in html.lower()
-
-
-def _is_warmup_ready(html: str) -> bool:
-    if _is_challenge(html):
-        return False
-    return len(html) >= WAF_BLOCK_MAX_HTML_LEN or html.count("data-widget") >= 5
+    return len(html) < 15_000 and "antibot" in html.lower()
 
 
 def _is_product_detail_ready(html: str) -> bool:
@@ -76,7 +66,10 @@ def _waf_block_result() -> tuple[list[dict[str, Any]], str, str]:
 
 
 def _browser_headless() -> bool:
-    return settings.ozon_browser_headless
+    headless = settings.ozon_browser_headless
+    if headless is None:
+        headless = not bool(os.getenv("DISPLAY"))
+    return headless
 
 
 def _browser_args() -> list[str]:
@@ -164,44 +157,30 @@ async def _set_ozon_city(browser: uc.Browser, *, city_name: str) -> bool:
         return False
 
 
-async def _warmup_interact(tab: uc.Tab) -> None:
-    """Light scroll/mouse activity — Ozon __rr=1 redirect often needs a real session."""
-    try:
-        await tab.scroll_down(400)
-        await tab.sleep(1.0)
-        await tab.scroll_down(600)
-        await tab.sleep(0.5)
-    except Exception:
-        pass
-
-
 async def _warmup_browser(browser: uc.Browser, *, label: str) -> str | None:
     """Visit ozon.ru homepage to pass WAF and collect cookies before search."""
     if not settings.ozon_browser_warmup_home:
         return None
     home_tab = await browser.get(OZON_HOME_URL)
     await home_tab.sleep(settings.ozon_browser_warmup_seconds)
-    await _warmup_interact(home_tab)
     home_html, home_ok = await _poll_until_ready(
         home_tab,
         settings.ozon_browser_warmup_seconds + settings.ozon_browser_wait_seconds,
-        warmup=True,
+        require_products=False,
     )
     if not home_ok and _is_challenge(home_html):
-        struct_logger.info("ozon_browser_warmup_retry_page", query=label, html_len=len(home_html))
         await home_tab.sleep(4.0)
         try:
             await home_tab.reload()
         except Exception:
             pass
         await home_tab.sleep(2.0)
-        await _warmup_interact(home_tab)
         home_html, home_ok = await _poll_until_ready(
             home_tab,
-            settings.ozon_browser_warmup_seconds + settings.ozon_browser_wait_seconds,
-            warmup=True,
+            settings.ozon_browser_warmup_seconds,
+            require_products=False,
         )
-    if home_ok or _is_warmup_ready(home_html):
+    if home_ok or not _is_challenge(home_html):
         struct_logger.info("ozon_browser_warmup_ok", query=label, html_len=len(home_html))
         return None
     struct_logger.warning("ozon_browser_warmup_challenge", query=label, html_len=len(home_html))
@@ -214,7 +193,6 @@ async def _poll_until_ready(
     *,
     require_products: bool = False,
     require_product_detail: bool = False,
-    warmup: bool = False,
 ) -> tuple[str, bool]:
     deadline = time.monotonic() + max_seconds
     html = ""
@@ -224,8 +202,6 @@ async def _poll_until_ready(
             ready = _is_product_detail_ready(html or "")
         elif require_products:
             ready = _is_search_ready(html or "")
-        elif warmup:
-            ready = _is_warmup_ready(html or "")
         else:
             ready = not _is_challenge(html or "")
         if ready:
@@ -266,20 +242,6 @@ async def navigate_and_get_html(
                 )
         except Exception:
             pass
-    if require_products and ok:
-        try:
-            from app.scrapers.ozon_seo_common import _extract_broad_from_html_cards
-
-            html = await tab.get_content()
-            for _ in range(15):
-                cards = _extract_broad_from_html_cards(html, max_results=48)
-                if len(cards) >= settings.ozon_ml_top_k:
-                    break
-                await tab.scroll_down(1200)
-                await tab.sleep(1.0)
-                html = await tab.get_content()
-        except Exception:
-            pass
     if ok:
         return html, None
     if _is_challenge(html or ""):
@@ -312,7 +274,6 @@ async def run_browser_pipeline[T](
     async with ozon_browser_semaphore:
         for attempt in range(1, max_attempts + 1):
             browser: uc.Browser | None = None
-            headless = _browser_headless()
             struct_logger.info(
                 "ozon_browser_pipeline_start",
                 query=label,
@@ -320,14 +281,8 @@ async def run_browser_pipeline[T](
                 max_attempts=max_attempts,
                 timeout_seconds=timeout,
                 display=os.getenv("DISPLAY"),
-                headless=headless,
+                headless=_browser_headless(),
             )
-            if headless:
-                struct_logger.warning(
-                    "ozon_browser_headless_enabled",
-                    query=label,
-                    message="Headless mode triggers Ozon WAF — set OZON_BROWSER_HEADLESS=false",
-                )
             try:
                 browser = await _start_browser()
                 warmup_error = await _warmup_browser(browser, label=label)
