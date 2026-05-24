@@ -91,3 +91,4 @@ def test_is_category_listing():
         "Купить Мышь Logitech M90 Чёрная по выгодной цене в интернет-магазине билайн",
         "https://novosibirsk.beeline.ru/shop/details/mysh-provodnaya-logitech-m90-black/",
     )
+    assert not is_product_page_url("https://novosibirsk.e2e4online.ru/catalog/myshi-18/")

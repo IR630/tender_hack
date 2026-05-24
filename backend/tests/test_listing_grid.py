@@ -1,5 +1,6 @@
 from other_public_scraper.parsers.listing_grid import extract_dom_listing_products
 from other_public_scraper.pipelines.page_extractor import extract_products_from_listing_html
+from other_public_scraper.scraper import _is_listing_grid_url
 
 DNS_LISTING_HTML = """
 <html><body>
@@ -67,3 +68,7 @@ def test_extract_products_from_listing_html_uses_dom():
     assert len(items) == 2
     assert items[0].extraction_method == "dom_listing"
     assert items[0].source_domain == "dns-shop.ru"
+
+
+def test_e2e4_mouse_catalog_is_listing_grid():
+    assert _is_listing_grid_url("https://novosibirsk.e2e4online.ru/catalog/myshi-18/")

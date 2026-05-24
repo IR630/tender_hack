@@ -114,7 +114,8 @@ def _looks_like_product_path(path: str) -> bool:
         listing_slugs = {
             "naushniki", "smartfony", "noutbuki", "planshety", "monitory", "shiny", "tyres",
         }
-        if slug in listing_slugs:
+        listing_prefixes = ("myshi", "mysi", "klaviatury", "printery")
+        if slug in listing_slugs or slug.startswith(listing_prefixes):
             return False
         return True
     return False

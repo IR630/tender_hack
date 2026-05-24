@@ -55,6 +55,14 @@ def _path_segments(url: str) -> list[str]:
     return [part for part in urlparse(url).path.split("/") if part]
 
 
+def _looks_like_listing_slug(slug: str) -> bool:
+    listing_slugs = {
+        "naushniki", "smartfony", "noutbuki", "planshety", "monitory", "shiny", "tyres",
+    }
+    listing_prefixes = ("myshi", "mysi", "klaviatury", "printery")
+    return slug in listing_slugs or slug.startswith(listing_prefixes)
+
+
 def is_product_page_url(url: str) -> bool:
     path = urlparse(url).path.lower()
     if re.search(
@@ -73,10 +81,7 @@ def is_product_page_url(url: str) -> bool:
         slug = segments[-1].lower()
         if slug.startswith("brand_"):
             return False
-        listing_slugs = {
-            "naushniki", "smartfony", "noutbuki", "planshety", "monitory", "shiny", "tyres",
-        }
-        if slug in listing_slugs:
+        if _looks_like_listing_slug(slug):
             return False
         return True
     return False
