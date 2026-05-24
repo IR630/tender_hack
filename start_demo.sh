@@ -106,7 +106,8 @@ else
     echo "ERROR: установите xvfb (pacman -S xorg-server-xvfb)"
     exit 1
   fi
-  xvfb-run -a uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 &
+  # -screen 0 1920x1080x24: Chrome не рендерит на дефолтной 8-битной глубине xvfb-run и виснет
+  xvfb-run -a -s "-screen 0 1920x1080x24" uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 &
 fi
 
 API_PID=$!
