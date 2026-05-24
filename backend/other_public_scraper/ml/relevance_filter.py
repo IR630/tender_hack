@@ -8,14 +8,22 @@ from other_public_scraper.url_heuristics import url_quality_score
 logger = logging.getLogger(__name__)
 
 _MODEL = None
+_MODEL_DISABLED = False
 
 
 def _get_model():
-    global _MODEL
+    global _MODEL, _MODEL_DISABLED
+    if _MODEL_DISABLED:
+        return None
     if _MODEL is None:
-        from sentence_transformers import SentenceTransformer
+        try:
+            from sentence_transformers import SentenceTransformer
 
-        _MODEL = SentenceTransformer("cointegrated/rubert-tiny2")
+            _MODEL = SentenceTransformer("cointegrated/rubert-tiny2")
+        except Exception as exc:
+            logger.warning("relevance model unavailable, using token overlap: %s", exc)
+            _MODEL_DISABLED = True
+            return None
     return _MODEL
 
 
@@ -40,6 +48,8 @@ def cosine_similarity_batch(query: str, text: str) -> float:
         return 0.0
     try:
         model = _get_model()
+        if model is None:
+            return _token_overlap_score(query, text)
         embeddings = model.encode([query, text], normalize_embeddings=True)
         return float(embeddings[1] @ embeddings[0])
     except Exception as exc:

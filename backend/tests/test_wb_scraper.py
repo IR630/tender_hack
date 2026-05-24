@@ -144,6 +144,8 @@ async def test_circuit_breaker_blocks_after_trip(monkeypatch):
     from app.scrapers.wb.circuit import trip_circuit
 
     trip_circuit()
+    trip_circuit()
+    trip_circuit()
 
     async def no_cache(region, query):
         return None
@@ -184,3 +186,20 @@ def test_build_description_from_search_fields():
     assert "• Бренд: Nike" in desc
     assert "• Цвет: черный, белый" in desc
     assert "Рейтинг: 4.8 (120 отзывов)" in desc
+
+
+def test_parse_search_products_rejects_throttled_single_item():
+    from app.scrapers.wb.session import _parse_search_products
+
+    legacy = _parse_search_products({"products": [{"id": i} for i in range(6)]})
+    assert len(legacy) == 6
+
+    throttled = _parse_search_products(
+        {"data": {"products": [{"id": 99, "name": "Платье"}]}}
+    )
+    assert throttled == []
+
+    nested = _parse_search_products(
+        {"data": {"products": [{"id": i} for i in range(8)]}}
+    )
+    assert len(nested) == 8

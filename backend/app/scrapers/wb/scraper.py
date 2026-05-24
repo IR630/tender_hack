@@ -9,8 +9,8 @@ from app.core.models import Product, SearchRequest
 from app.core.regions import Region, resolve_region
 from app.scrapers.base import BaseScraper
 from app.scrapers.wb.assemble import assemble_products
-from app.scrapers.wb.images import resolve_product_images
 from app.scrapers.wb.circuit import circuit_is_open
+from app.scrapers.wb.images import resolve_product_images
 from app.scrapers.wb.logging_utils import log_wb_request
 from app.scrapers.wb.metrics import wb_metrics
 from app.scrapers.wb.models import RhythmState
@@ -97,30 +97,33 @@ class WBParser:
         await wait_before_request(_rhythm_state)
         attempt = await wb_session.fetch_search(params)
         if attempt.error:
+            cached = await _load_cached_products(region.id, query)
+            if cached is not None:
+                logger.info(
+                    "WB cache fallback for query=%r after error: %s",
+                    query,
+                    attempt.error[:80],
+                )
+                return cached, None
             logger.warning("WB parser failed for query=%r: %s", query, attempt.error)
             return [], attempt.error
 
-        assembled = assemble_products(attempt.products)
+        assembled = assemble_products(attempt.products)[: settings.wb_max_results]
         if not assembled:
             return [], "Wildberries вернул товары, но ни один не прошёл фильтрацию (цена/поля)"
 
-        fast_batch = await resolve_product_images(assembled[:5])
-        if on_partial and fast_batch:
+        products = await resolve_product_images(assembled)
+        if on_partial and products:
             try:
-                await on_partial(fast_batch)
+                await on_partial(products[:5])
             except Exception:
                 pass
 
-        rest_batch = await resolve_product_images(assembled[5:15])
-        products = fast_batch + rest_batch
-
         await _store_cached_products(region.id, query, products)
         logger.info(
-            "WB parser funnel for %r: %d raw -> %d fast + %d rest = %d total",
+            "WB parser funnel for %r: %d raw -> %d returned",
             query,
             len(attempt.products),
-            len(fast_batch),
-            len(rest_batch),
             len(products),
         )
         return products, None

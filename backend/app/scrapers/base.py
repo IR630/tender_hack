@@ -12,7 +12,7 @@ class BaseScraper(ABC):
     last_source_status: str | None = None
 
     FAST_LIMIT: int = 5
-    FULL_LIMIT: int = 15
+    FULL_LIMIT: int = 20
 
     @abstractmethod
     async def search(

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 from other_public_scraper.models import OtherExtractResult
 from other_public_scraper.parsers.adapters.base import get_adapter
@@ -62,6 +62,16 @@ def is_product_page_url(url: str) -> bool:
         return True
     if "product" in segments:
         return True
+    if "catalog" in segments and len(segments) == 2:
+        slug = segments[-1].lower()
+        if slug.startswith("brand_"):
+            return False
+        listing_slugs = {
+            "naushniki", "smartfony", "noutbuki", "planshety", "monitory", "shiny", "tyres",
+        }
+        if slug in listing_slugs:
+            return False
+        return True
     return False
 
 
@@ -91,9 +101,14 @@ def _raw_to_result(
     if price_rub is None:
         price_rub = parse_price(str(raw.get("price_raw") or ""))
     image_url = str(raw.get("image_url") or "").strip()
+    if image_url:
+        image_url = urljoin(fallback_url, image_url)
+    if image_url.startswith("data:image") or not image_url.startswith("http"):
+        image_url = ""
+        
     description = str(raw.get("description") or "").strip()
     product_url = str(raw.get("product_url") or fallback_url).strip()
-    if not title or not price_rub or not image_url or not product_url.startswith("http"):
+    if not title or not price_rub or not product_url.startswith("http"):
         return None
     return OtherExtractResult(
         title=title,
@@ -179,12 +194,30 @@ def extract_product_from_html(
             confidence = min(confidence, 0.4)
 
     image_url = str(raw.get("image_url") or "").strip()
+    
+    if not image_url:
+        from selectolax.parser import HTMLParser
+        tree = HTMLParser(html)
+        for img in tree.css("img"):
+            src = (
+                img.attributes.get("data-src")
+                or img.attributes.get("data-lazy-src")
+                or img.attributes.get("data-original")
+                or img.attributes.get("src")
+            )
+            if src and not src.startswith("data:image"):
+                image_url = src
+                break
+
+    if image_url:
+        image_url = urljoin(url, image_url)
+        
+    if image_url.startswith("data:image") or not image_url.startswith("http"):
+        image_url = ""
+
     description = str(raw.get("description") or "").strip()
     product_url = str(raw.get("product_url") or url).strip()
-    if not title or not price_rub or not image_url:
-        return None
-
-    if not image_url.startswith("http"):
+    if not title or not price_rub:
         return None
 
     return OtherExtractResult(

@@ -4,6 +4,7 @@ import asyncio
 import html
 import logging
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from difflib import SequenceMatcher
@@ -17,6 +18,7 @@ from app.core.config import settings
 from app.core.models import Product, SearchRequest
 from app.core.regions import resolve_region
 from app.scrapers.base import BaseScraper
+from app.utils.image_urls import normalize_marketplace_image_url
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +26,10 @@ BASE_URL = "https://market.yandex.ru"
 DEFAULT_HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    ),
     "Sec-Fetch-Dest": "document",
     "Sec-Fetch-Mode": "navigate",
     "Sec-Fetch-Site": "none",
@@ -31,10 +37,29 @@ DEFAULT_HEADERS = {
     "Upgrade-Insecure-Requests": "1",
 }
 
+@dataclass
+class YMSessionManager:
+    _session: curl_requests.Session | None = None
+    _last_used: float = 0.0
+
+    def get_session(self) -> curl_requests.Session:
+        now = time.monotonic()
+        if self._session is None or now - self._last_used > 300:
+            if self._session is not None:
+                try:
+                    self._session.close()
+                except Exception:
+                    pass
+            self._session = curl_requests.Session(impersonate="chrome120")
+        self._last_used = now
+        return self._session
+
+ym_session_manager = YMSessionManager()
+
 PAGE_DELAY_SEC = 0.8
 CARD_FETCH_WORKERS = 4
 CARD_FETCH_TIMEOUT = 30
-MAX_RESULTS = 20
+MAX_RESULTS = 15
 
 # Stub heuristics — replace with ML/ranking later.
 GARBAGE_KEYWORDS = (
@@ -59,6 +84,8 @@ QUERY_STOP_WORDS = frozenset(
 QUERY_TOKEN_ALIASES: dict[str, tuple[str, ...]] = {
     "телефон": ("телефон", "смартфон", "smartphone", "phone", "iphone", "айфон", "mobile"),
     "смартфон": ("смартфон", "телефон", "smartphone", "phone", "iphone", "айфон"),
+    "айфон": ("айфон", "iphone", "apple", "смартфон", "телефон", "smartphone"),
+    "iphone": ("iphone", "айфон", "apple", "смартфон", "телефон", "smartphone"),
     "ноутбук": ("ноутбук", "laptop", "notebook", "macbook"),
     "шины": ("шины", "шина", "tyre", "tire", "резин"),
     "очки": ("очки", "очков", "оправ", "ray-ban", "ray ban"),
@@ -206,7 +233,7 @@ def _card_page_url(product_url: str) -> str:
 
 
 def _fetch_card_html(product_url: str) -> str:
-    session = curl_requests.Session(impersonate="chrome120")
+    session = ym_session_manager.get_session()
     response = session.get(
         _card_page_url(product_url),
         headers=DEFAULT_HEADERS,
@@ -380,13 +407,16 @@ def _is_garbage_listing(title: str, query: str) -> bool:
     if query_tokens and not _title_matches_query(title_lower, query):
         return True
 
-    if any(keyword in title_lower for keyword in GARBAGE_KEYWORDS):
-        accessory_query = any(
-            word in " ".join(query_tokens)
-            for word in ("чехол", "стекло", "кабель", "заряд", "наушник")
-        )
-        if not accessory_query:
-            return True
+    for keyword in GARBAGE_KEYWORDS:
+        if keyword in title_lower:
+            if any(keyword in token for token in query_tokens):
+                continue
+            accessory_query = any(
+                word in " ".join(query_tokens)
+                for word in ("чехол", "стекло", "кабель", "заряд", "наушник")
+            )
+            if not accessory_query:
+                return True
 
     return False
 
@@ -395,8 +425,10 @@ def _parse_search_html(html: str) -> list[Product]:
     tree = HTMLParser(html)
     products: list[Product] = []
 
-    for article in tree.css("article"):
-        title_el = article.css_first('[data-auto="snippet-title"]')
+    articles = tree.css("article")
+    logger.debug("Yandex Market: found %d article elements", len(articles))
+    for article in articles:
+        title_el = article.css_first('[data-auto="snippet-title"], h3')
         if not title_el:
             continue
 
@@ -404,7 +436,7 @@ def _parse_search_html(html: str) -> list[Product]:
         if not title:
             continue
 
-        price_el = article.css_first('[data-auto="snippet-price-current"]')
+        price_el = article.css_first('[data-auto="snippet-price-current"], [data-auto="price-value"]')
         link_el = article.css_first('a[href*="/product/"], a[href*="/card/"]')
         img_el = article.css_first("img")
         reviews_el = article.css_first('[data-auto="reviews"]')
@@ -440,7 +472,7 @@ def _parse_search_html(html: str) -> list[Product]:
                     delivery=delivery_text,
                 ),
                 price=price_kopecks,
-                image_url=image,
+                image_url=normalize_marketplace_image_url(image),
                 product_url=urljoin(BASE_URL, href),
                 characteristics=characteristics,
                 rating=rating,
@@ -578,7 +610,7 @@ def _fetch_first_page_raw(query: str, yandex_market_id: int) -> list[Product]:
 
 
 def _fetch_products_sync(query: str, yandex_market_id: int) -> list[Product]:
-    session = curl_requests.Session(impersonate="chrome120")
+    session = ym_session_manager.get_session()
     _apply_yandex_region(session, yandex_market_id)
     session.get(f"{BASE_URL}/", headers=DEFAULT_HEADERS, timeout=20)
 
@@ -611,7 +643,7 @@ async def _fetch_with_playwright(query: str, yandex_market_id: int) -> list[Prod
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch(
             headless=True,
-            args=["--disable-blink-features=AutomationControlled", "--no-sandbox"],
+            args=["--no-sandbox"],
         )
         context = await browser.new_context(locale="ru-RU")
         await context.add_cookies(
@@ -654,6 +686,15 @@ async def _fetch_with_playwright(query: str, yandex_market_id: int) -> list[Prod
 class YandexMarketScraper(BaseScraper):
     source = "yandex_market"
 
+    @staticmethod
+    def _with_normalized_images(products: list[Product]) -> list[Product]:
+        return [
+            product.model_copy(
+                update={"image_url": normalize_marketplace_image_url(product.image_url)}
+            )
+            for product in products
+        ]
+
     async def search(self, request: SearchRequest, *, on_partial=None) -> list[Product]:
         self.clear_error()
         query = request.query.strip()
@@ -664,7 +705,7 @@ class YandexMarketScraper(BaseScraper):
 
         cached = await _load_cached_products(region.id, query)
         if cached is not None:
-            return cached
+            return self._with_normalized_images(cached)
 
         # Stage 1: page 1 only, no enrichment — send fast batch immediately
         if on_partial:
@@ -685,6 +726,7 @@ class YandexMarketScraper(BaseScraper):
         try:
             products = await asyncio.to_thread(_fetch_products_sync, query, region.yandex_market_id)
             if products:
+                products = self._with_normalized_images(products)
                 await _store_cached_products(region.id, query, products)
                 return products
             self.set_error("Яндекс Маркет не нашёл подходящих товаров по запросу")
@@ -695,6 +737,7 @@ class YandexMarketScraper(BaseScraper):
         try:
             products = await _fetch_with_playwright(query, region.yandex_market_id)
             if products:
+                products = self._with_normalized_images(products)
                 await _store_cached_products(region.id, query, products)
                 return products
             if not self.last_error:
