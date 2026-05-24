@@ -418,8 +418,6 @@ async def _collect_listing_grid_products(
         )
         accepted = _accept_listing_products(listing, query, category, seen)
         products.extend(accepted)
-        if len(products) >= settings.other_max_results:
-            break
     products.sort(key=lambda item: item.relevance_score, reverse=True)
     return products
 
@@ -435,7 +433,7 @@ async def _search_once(
 
     region_obj = resolve_region(region)
     if region_obj.id != "moscow":
-        geo_query = f"{query} {region_obj.search_keyword} доставка".strip()
+        geo_query = f"{query} {region_obj.name}".strip()
     else:
         geo_query = query
 
@@ -597,15 +595,13 @@ async def _search_once(
 
     if category == "unknown":
         extra_grid = await _collect_listing_grid_products(candidates, query, category, max_pages=3)
-        added_grid = 0
         for item in extra_grid:
             key = item.product_url.split("#")[0]
             if key in seen_product_urls:
                 continue
             seen_product_urls.add(key)
             products.append(item)
-            added_grid += 1
-            if len(products) >= settings.other_max_results or added_grid >= 2:
+            if len(products) >= settings.other_max_results:
                 break
 
     # If grid alone had enough, try fast partial from grid
@@ -617,8 +613,6 @@ async def _search_once(
             pass
 
     hard_cap_per_domain = settings.other_max_per_domain
-    if category == "unknown":
-        hard_cap_per_domain = min(hard_cap_per_domain, 2)
 
     products = _cap_per_domain(
         products,

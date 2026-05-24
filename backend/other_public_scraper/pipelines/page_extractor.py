@@ -104,11 +104,16 @@ def is_product_page_url(url: str) -> bool:
             return False
         if _looks_like_listing_slug(slug):
             return False
+        if not any(c.isdigit() for c in slug) and "-" in slug:
+            return False
         return True
     return False
 
 
 def is_category_listing(title: str, url: str) -> bool:
+    title_lower = title.lower()
+    if " купить в " in title_lower and not any(c.isdigit() for c in title):
+        return True
     if is_product_page_url(url):
         return False
     if _CATEGORY_TITLE_RE.search(title):
@@ -140,7 +145,13 @@ def _raw_to_result(
         image_url = ""
         
     description = str(raw.get("description") or "").strip()
-    product_url = str(raw.get("product_url") or fallback_url).strip()
+    
+    product_url = str(raw.get("product_url") or "").strip()
+    if not product_url:
+        if "listing" in method:
+            return None
+        product_url = fallback_url
+        
     if not title or not price_rub or not product_url.startswith("http"):
         return None
     return OtherExtractResult(
