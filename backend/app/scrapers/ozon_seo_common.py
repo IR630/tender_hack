@@ -49,7 +49,6 @@ SKIP_WIDGET_MARKERS = (
 )
 REJECT_CARD_MARKERS = (
     "реклама",
-    "ozon global",
     "спонсор",
 )
 TITLE_SELECTORS = (
@@ -543,15 +542,39 @@ def _is_rejected_card(card: Node) -> bool:
 
 
 def _find_main_grid_cards(tree: HTMLParser) -> list[Node]:
+    """Collect search tiles from all grid widgets (Ozon splits results across blocks)."""
+    merged: list[Node] = []
+    seen_ids: set[int] = set()
     for root_selector in MAIN_GRID_ROOT_SELECTORS:
-        root = tree.css_first(root_selector)
-        if root is None:
-            continue
-        cards = root.css("div.tile-root")
+        for root in tree.css(root_selector):
+            for selector in CARD_SELECTORS:
+                for card in root.css(selector):
+                    card_id = id(card)
+                    if card_id in seen_ids:
+                        continue
+                    if _is_rejected_card(card):
+                        continue
+                    seen_ids.add(card_id)
+                    merged.append(card)
+
+    if not merged:
+        for card in tree.css("div.tile-root"):
+            if _is_rejected_card(card):
+                continue
+            card_id = id(card)
+            if card_id in seen_ids:
+                continue
+            seen_ids.add(card_id)
+            merged.append(card)
+
+    if merged:
+        return merged
+
+    for selector in CARD_SELECTORS:
+        cards = tree.css(selector)
         if cards:
             return [card for card in cards if not _is_rejected_card(card)]
-    cards = tree.css("div.tile-root")
-    return [card for card in cards if not _is_rejected_card(card)]
+    return []
 
 
 def _extract_broad_from_html_cards(html: str, *, max_results: int) -> list[dict[str, Any]]:

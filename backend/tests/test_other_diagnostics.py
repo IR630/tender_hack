@@ -1,4 +1,4 @@
-from other_public_scraper.diagnostics import OtherSearchDiagnostics, reset_diagnostics
+from other_public_scraper.diagnostics import reset_diagnostics
 
 
 def test_format_user_message_with_fetch_failures():

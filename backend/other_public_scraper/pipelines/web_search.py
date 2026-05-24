@@ -8,6 +8,7 @@ import re
 
 from other_public_scraper.config import settings
 from other_public_scraper.diagnostics import active_diagnostics
+from other_public_scraper.grocery_seeds import is_grocery_query
 from other_public_scraper.models import UrlCandidate
 from other_public_scraper.pipelines.bing_search import search_bing_urls
 from other_public_scraper.pipelines.ddg_search import search_ddg_urls

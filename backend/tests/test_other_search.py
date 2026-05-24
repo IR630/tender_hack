@@ -8,7 +8,7 @@ from app.sources.other import search as other_search_module
 async def test_search_other_sources_retry_corrected(monkeypatch):
     calls: list[str] = []
 
-    async def fake_run(query, region):
+    async def fake_run(query, region, *, on_partial=None):
         calls.append(query)
         if query == "принтер":
             return [other_search_module._to_product(type("R", (), {
@@ -38,7 +38,7 @@ async def test_search_other_sources_retry_corrected(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_search_other_sources_sets_error_when_empty(monkeypatch):
-    async def fake_run(query, region):
+    async def fake_run(query, region, *, on_partial=None):
         return []
 
     monkeypatch.setattr(other_search_module, "_run_search", fake_run)
