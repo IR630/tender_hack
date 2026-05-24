@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-import pandas as pd
 import structlog
 
 logger = logging.getLogger(__name__)
@@ -46,10 +45,14 @@ def filter_top_k_by_similarity(
         title_vecs = embeddings[1:]
         similarities = title_vecs @ query_vec
 
-        frame = pd.DataFrame(products).copy()
-        frame["similarity"] = similarities
-        frame = frame.sort_values("similarity", ascending=False).head(top_k)
-        selected = frame.to_dict(orient="records")
+        # Rank by similarity on indices and keep the original dicts intact — round-tripping
+        # through a DataFrame fills missing keys with NaN, which later breaks int(price).
+        ranked = sorted(range(len(products)), key=lambda i: similarities[i], reverse=True)
+        selected = []
+        for i in ranked[:top_k]:
+            product = dict(products[i])
+            product["similarity"] = float(similarities[i])
+            selected.append(product)
         struct_logger.info(
             "ozon_ml_filter_applied",
             query=query,
