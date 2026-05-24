@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { ProductCard } from "./ProductCard";
-import type { SearchGroup } from "../types/search";
+import type { Product, SearchGroup } from "../types/search";
+
+type SortDir = "none" | "asc" | "desc";
 
 interface SourceGroupProps {
   group: SearchGroup;
@@ -30,22 +32,41 @@ function productLabel(count: number): string {
   return "товаров";
 }
 
+function sortByPrice(products: Product[], dir: SortDir): Product[] {
+  if (dir === "none") {
+    return products;
+  }
+  const priced = products.filter((p) => p.price > 0);
+  const unpriced = products.filter((p) => p.price <= 0);
+  priced.sort((a, b) => (dir === "asc" ? a.price - b.price : b.price - a.price));
+  return [...priced, ...unpriced];
+}
+
 export function SourceGroup({ group, pending = false }: SourceGroupProps) {
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
+  const [sortDir, setSortDir] = useState<SortDir>("none");
 
   const firstProductUrl = group.products[0]?.product_url;
   useEffect(() => {
     setVisibleCount(INITIAL_VISIBLE);
+    setSortDir("none");
   }, [group.source, firstProductUrl]);
 
-  const products = group.products;
+  const products = useMemo(
+    () => sortByPrice(group.products, sortDir),
+    [group.products, sortDir],
+  );
   const moreInFlight = group.status === "loading_more" && visibleCount >= products.length;
   const hasHidden = visibleCount < products.length;
   const isExpanded = visibleCount > INITIAL_VISIBLE;
+  const fullyOpen = !hasHidden && !moreInFlight;
+  const canSort = fullyOpen && products.length > 1;
 
   const handleShowMore = () =>
     setVisibleCount((c) => Math.min(c + EXPANSION_SIZE, products.length));
   const handleHide = () => setVisibleCount(INITIAL_VISIBLE);
+  const handleToggleSort = () =>
+    setSortDir((dir) => (dir === "none" ? "asc" : dir === "asc" ? "desc" : "none"));
 
   return (
     <section className="rounded-card border border-rule bg-paper-2 p-5">
@@ -108,25 +129,38 @@ export function SourceGroup({ group, pending = false }: SourceGroupProps) {
             )}
           </ul>
 
-          {(hasHidden || moreInFlight || isExpanded) && (
+          {(hasHidden || moreInFlight || isExpanded || canSort) && (
             <div className="mt-4 flex flex-wrap gap-3">
               {(hasHidden || moreInFlight) && (
                 <button
                   type="button"
                   onClick={handleShowMore}
                   disabled={moreInFlight}
-                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-input bg-accent px-4 py-2 text-sm font-medium text-accent-ink transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {moreInFlight
                     ? "Ищем ещё…"
                     : `Показать ещё ${Math.min(EXPANSION_SIZE, products.length - visibleCount)} ${productLabel(Math.min(EXPANSION_SIZE, products.length - visibleCount))}`}
                 </button>
               )}
+              {canSort && (
+                <button
+                  type="button"
+                  onClick={handleToggleSort}
+                  className="rounded-input border border-rule bg-paper px-4 py-2 text-sm font-medium text-ink-2 transition-colors hover:border-rule-2 hover:text-ink"
+                >
+                  {sortDir === "asc"
+                    ? "Цена: по возрастанию ↑"
+                    : sortDir === "desc"
+                      ? "Цена: по убыванию ↓"
+                      : "Сортировать по цене"}
+                </button>
+              )}
               {isExpanded && (
                 <button
                   type="button"
                   onClick={handleHide}
-                  className="rounded-md border border-slate-600 bg-transparent px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800"
+                  className="rounded-input border border-rule bg-transparent px-4 py-2 text-sm font-medium text-muted transition-colors hover:border-rule-2 hover:text-ink"
                 >
                   Скрыть
                 </button>
