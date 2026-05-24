@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     ym_cache_enabled: bool = True
     ym_search_max_pages: int = 3
     ozon_use_browser: bool = True
-    ozon_browser_wait_seconds: float = 30.0
+    ozon_browser_wait_seconds: float = 12.0
     ozon_browser_total_timeout_seconds: float = 45.0
     ozon_browser_warmup_home: bool = True
     ozon_browser_warmup_seconds: float = 8.0
