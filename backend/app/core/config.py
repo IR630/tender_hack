@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     wb_proxy_max_retries: int = 15
     wb_proxy_sticky_session: bool = False
     wb_proxy_timeout_seconds: float = 20.0
-    wb_proxy_parallel_attempts: int = 8
+    wb_proxy_parallel_attempts: int = 32
     wb_proxy_race_rounds: int = 8
     # Default 30 preserves the prior hardcoded MAX_RESULTS. PR #9 on main used 5
     # for tighter throttling; raise via env if you need that.
