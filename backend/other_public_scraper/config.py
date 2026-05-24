@@ -84,7 +84,7 @@ class OtherPublicSettings(BaseSettings):
     meilisearch_api_key: str = Field(default="", validation_alias="MEILI_MASTER_KEY")
     meilisearch_index: str = Field(default="other_products", validation_alias="OTHER_MEILI_INDEX")
     other_search_timeout_seconds: float = Field(
-        default=45.0, validation_alias="OTHER_SEARCH_TIMEOUT_SECONDS"
+        default=90.0, validation_alias="OTHER_SEARCH_TIMEOUT_SECONDS"
     )
     other_fetch_concurrency: int = Field(default=4, validation_alias="OTHER_FETCH_CONCURRENCY")
     other_searxng_cache_ttl: int = Field(default=1800, validation_alias="OTHER_SEARXNG_CACHE_TTL")

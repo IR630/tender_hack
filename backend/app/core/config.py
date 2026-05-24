@@ -73,7 +73,7 @@ class Settings(BaseSettings):
     query_spell_enabled: bool = True
     query_spell_timeout_seconds: float = 4.0
     query_spell_cache_ttl_seconds: int = 86400
-    other_search_timeout_seconds: float = 45.0
+    other_search_timeout_seconds: float = 90.0
     other_fetch_concurrency: int = 4
     other_cache_enabled: bool = False
     other_max_results: int = 20

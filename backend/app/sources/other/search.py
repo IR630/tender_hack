@@ -4,9 +4,9 @@ import asyncio
 import logging
 
 from app.core.cache import cache_get, cache_set
-from app.core.config import settings
 from app.core.models import Product, SearchRequest
 from app.core.regions import resolve_region
+from other_public_scraper.config import settings as other_settings
 from other_public_scraper.diagnostics import get_diagnostics
 from other_public_scraper.scraper import search_other
 
@@ -39,7 +39,7 @@ def _to_product(item) -> Product:
 
 
 async def _run_search(query: str, region: str, *, on_partial=None) -> list[Product]:
-    if settings.other_cache_enabled:
+    if other_settings.other_cache_enabled:
         cached = cache_get(_cache_key(region, query))
         if cached is not None:
             logger.info(
@@ -51,7 +51,6 @@ async def _run_search(query: str, region: str, *, on_partial=None) -> list[Produ
             return [Product.model_validate(item) for item in cached]
         logger.info("other_cache_miss query=%r region=%s", query, region)
 
-    # Wrap the Product-level callback into an OtherExtractResult-level callback
     raw_on_partial = None
     if on_partial:
         async def raw_on_partial(raw_items) -> None:
@@ -62,16 +61,16 @@ async def _run_search(query: str, region: str, *, on_partial=None) -> list[Produ
 
     raw = await asyncio.wait_for(
         search_other(query, region, on_partial=raw_on_partial),
-        timeout=settings.other_search_timeout_seconds,
+        timeout=other_settings.other_search_timeout_seconds,
     )
     products = [_to_product(item) for item in raw]
     logger.info("other_integration query=%r raw_results=%d", query, len(products))
-    if settings.other_cache_enabled and products:
+    if other_settings.other_cache_enabled and products:
         cache_set(
             _cache_key(region, query),
             [p.model_dump(mode="json") for p in products],
         )
-    elif settings.other_cache_enabled and not products:
+    elif other_settings.other_cache_enabled and not products:
         logger.info("other_cache_skip_empty query=%r — пустой результат не кэшируется", query)
     return products
 

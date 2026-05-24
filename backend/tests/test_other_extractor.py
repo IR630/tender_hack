@@ -84,3 +84,10 @@ def test_is_category_listing():
         "Кроссовки Jomoto купить по цене 1199 ₽ в интернет-магазине",
         "https://www.detmir.ru/product/index/id/6745611/",
     )
+    assert is_product_page_url(
+        "https://novosibirsk.beeline.ru/shop/details/mysh-provodnaya-logitech-m90-black/"
+    )
+    assert not is_category_listing(
+        "Купить Мышь Logitech M90 Чёрная по выгодной цене в интернет-магазине билайн",
+        "https://novosibirsk.beeline.ru/shop/details/mysh-provodnaya-logitech-m90-black/",
+    )

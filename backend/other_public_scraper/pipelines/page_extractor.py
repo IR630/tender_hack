@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from urllib.parse import urljoin, urlparse
 
+from other_public_scraper.parsers.listing_grid import extract_dom_listing_products
 from other_public_scraper.models import OtherExtractResult
 from other_public_scraper.parsers.adapters.base import get_adapter
 from ozon_public_scraper.parsers.json_ld import (
@@ -55,6 +56,12 @@ def _path_segments(url: str) -> list[str]:
 
 
 def is_product_page_url(url: str) -> bool:
+    path = urlparse(url).path.lower()
+    if re.search(
+        r"/(?:product(?:s)?|goods|details|shop/details|catalog/(?:item|detail))/",
+        path,
+    ):
+        return True
     segments = _path_segments(url)
     if not segments:
         return False
@@ -130,7 +137,7 @@ def extract_products_from_listing_html(
     relevance_score: float = 0.0,
     max_items: int = 12,
 ) -> list[OtherExtractResult]:
-    """Extract multiple products from a catalog/listing page (JSON-LD grid)."""
+    """Extract multiple products from a catalog/listing page (JSON-LD + DOM grid)."""
     results: list[OtherExtractResult] = []
     seen: set[str] = set()
     for raw in extract_all_products_from_json_ld(html):
@@ -140,6 +147,24 @@ def extract_products_from_listing_html(
             relevance_score=relevance_score,
             method="json_ld_listing",
             confidence=0.75,
+        )
+        if item is None or is_category_listing(item.title, item.product_url):
+            continue
+        key = item.product_url.split("#")[0]
+        if key in seen:
+            continue
+        seen.add(key)
+        results.append(item)
+        if len(results) >= max_items:
+            return results
+
+    for raw in extract_dom_listing_products(html, page_url, max_items=max_items):
+        item = _raw_to_result(
+            raw,
+            fallback_url=page_url,
+            relevance_score=relevance_score,
+            method="dom_listing",
+            confidence=0.65,
         )
         if item is None or is_category_listing(item.title, item.product_url):
             continue

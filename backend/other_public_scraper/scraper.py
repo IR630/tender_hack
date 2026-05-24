@@ -30,6 +30,7 @@ from other_public_scraper.storage.meili import search_meili, upsert_products
 from other_public_scraper.transport import fetch_html
 from other_public_scraper.url_heuristics import (
     filter_and_sort_candidates,
+    is_fetch_blocked,
     is_rejected_url,
     url_quality_score,
 )
@@ -302,6 +303,23 @@ def _listing_grid_priority(url: str) -> float:
     segments = [part for part in path.split("/") if part]
     if len(segments) >= 3:
         score += 0.2
+    host = _domain(url)
+    if host == "dns-shop.ru" or host.endswith(".dns-shop.ru"):
+        score += 0.3
+    elif host == "technocity.ru" or host.endswith(".technocity.ru"):
+        score += 1.0
+    elif "e2e4online.ru" in host:
+        score += 1.0
+    elif host.endswith(".citilink.ru") or host == "citilink.ru":
+        score += 0.6
+    elif "technopark.ru" in host or host == "mvideo.ru":
+        score += 0.4
+    if any(token in path for token in ("/myshi", "/mysi", "/mouse", "mysh")):
+        score += 0.7
+    if "proizvoditel--" in path:
+        score -= 0.4
+    if "beeline.ru" in host or "blizko.ru" in host:
+        score -= 0.6
     if not path:
         score -= 0.3
     return score
@@ -310,6 +328,8 @@ def _listing_grid_priority(url: str) -> float:
 async def _resolve_listing_grid_url(url: str) -> str:
     path = urlparse(url).path.rstrip("/")
     if path:
+        return url
+    if is_fetch_blocked(url):
         return url
     result = await fetch_html(url)
     if result is None:
@@ -321,6 +341,60 @@ async def _resolve_listing_grid_url(url: str) -> str:
     return catalogs[0]
 
 
+def _accept_listing_products(
+    listing: list[OtherExtractResult],
+    query: str,
+    category: str,
+    seen: set[str],
+) -> list[OtherExtractResult]:
+    accepted: list[OtherExtractResult] = []
+    for extracted in listing:
+        if not _is_title_relevant(extracted.title, query, category):
+            continue
+        if not _passes_category_sanity(extracted.title, query, category):
+            continue
+        key = extracted.product_url.split("#")[0]
+        if key in seen:
+            continue
+        seen.add(key)
+        extracted.relevance_score = _title_relevance_score(extracted.title, query, category)
+        accepted.append(extracted)
+        active_diagnostics().extract_ok += 1
+    if accepted:
+        return accepted
+    for extracted in sorted(listing, key=lambda item: item.relevance_score, reverse=True):
+        if not _passes_category_sanity(extracted.title, query, category):
+            continue
+        if is_category_listing(extracted.title, extracted.product_url):
+            continue
+        key = extracted.product_url.split("#")[0]
+        if key in seen:
+            continue
+        seen.add(key)
+        extracted.relevance_score = max(
+            extracted.relevance_score,
+            settings.other_title_similarity_threshold,
+        )
+        accepted.append(extracted)
+        active_diagnostics().extract_ok += 1
+        break
+    return accepted
+
+
+def _unique_domain_listing_candidates(candidates: list[UrlCandidate]) -> list[UrlCandidate]:
+    grid_candidates = [c for c in candidates if _is_listing_grid_url(c.url)]
+    grid_candidates.sort(key=lambda item: _listing_grid_priority(item.url), reverse=True)
+    seen_domains: set[str] = set()
+    unique: list[UrlCandidate] = []
+    for candidate in grid_candidates:
+        domain = _domain(candidate.url)
+        if domain in seen_domains:
+            continue
+        seen_domains.add(domain)
+        unique.append(candidate)
+    return unique
+
+
 async def _collect_listing_grid_products(
     candidates: list[UrlCandidate],
     query: str,
@@ -328,8 +402,7 @@ async def _collect_listing_grid_products(
     *,
     max_pages: int = 5,
 ) -> list[OtherExtractResult]:
-    grid_candidates = [c for c in candidates if _is_listing_grid_url(c.url)]
-    grid_candidates.sort(key=lambda item: _listing_grid_priority(item.url), reverse=True)
+    grid_candidates = _unique_domain_listing_candidates(candidates)
     products: list[OtherExtractResult] = []
     seen: set[str] = set()
     for candidate in grid_candidates[:max_pages]:
@@ -340,23 +413,13 @@ async def _collect_listing_grid_products(
         active_diagnostics().fetch_ok += 1
         listing = extract_products_from_listing_html(
             result.body,
-            candidate.url,
+            page_url,
             relevance_score=candidate.similarity,
             max_items=settings.other_listing_products_per_page,
         )
-        for extracted in listing:
-            if not _is_title_relevant(extracted.title, query, category):
-                continue
-            if not _passes_category_sanity(extracted.title, query, category):
-                continue
-            key = extracted.product_url.split("#")[0]
-            if key in seen:
-                continue
-            seen.add(key)
-            extracted.relevance_score = _title_relevance_score(extracted.title, query, category)
-            products.append(extracted)
-            active_diagnostics().extract_ok += 1
-        if len(products) >= settings.other_max_results:
+        accepted = _accept_listing_products(listing, query, category, seen)
+        products.extend(accepted)
+        if products:
             break
     products.sort(key=lambda item: item.relevance_score, reverse=True)
     return products
@@ -424,7 +487,7 @@ async def _search_once(
     grid_products = await _collect_listing_grid_products(candidates, query, category)
     
     harvested_candidates = candidates
-    if len(grid_products) < settings.other_max_results:
+    if grid_products and len(grid_products) < settings.other_max_results:
         try:
             harvested_candidates = await asyncio.wait_for(
                 expand_listing_candidates(candidates),
@@ -440,7 +503,7 @@ async def _search_once(
 
     candidates = filter_and_sort_candidates(harvested_candidates)
 
-    if len(grid_products) < settings.other_max_results:
+    if grid_products and len(grid_products) < settings.other_max_results:
         extra_grid = await _collect_listing_grid_products(candidates, query, category)
         seen_grid = {item.product_url.split("#")[0] for item in grid_products}
         for item in extra_grid:
@@ -476,7 +539,20 @@ async def _search_once(
                 query,
                 min(rank_pool, len(candidates)),
             )
-            ranked = sorted(candidates, key=lambda c: c.title, reverse=False)[:rank_pool]
+            ranked = sorted(
+                candidates, key=lambda c: url_quality_score(c.url), reverse=True
+            )[:rank_pool]
+        elif len(ranked) < rank_pool and candidates:
+            seen_urls = {c.url for c in ranked}
+            for candidate in sorted(
+                candidates, key=lambda c: url_quality_score(c.url), reverse=True
+            ):
+                if candidate.url in seen_urls:
+                    continue
+                ranked.append(candidate)
+                seen_urls.add(candidate.url)
+                if len(ranked) >= rank_pool:
+                    break
         else:
             logger.info("other_search_ranked query=%r ranked=%d", query, len(ranked))
         diag.candidates_ranked = len(ranked)

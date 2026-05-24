@@ -25,7 +25,7 @@ async def test_search_other_sources_retry_corrected(monkeypatch):
         return []
 
     monkeypatch.setattr(other_search_module, "_run_search", fake_run)
-    monkeypatch.setattr(other_search_module.settings, "other_cache_enabled", False)
+    monkeypatch.setattr(other_search_module.other_settings, "other_cache_enabled", False)
 
     products = await other_search_module.search_other_sources(
         SearchRequest(query="принтер", region="moscow"),
@@ -42,7 +42,7 @@ async def test_search_other_sources_sets_error_when_empty(monkeypatch):
         return []
 
     monkeypatch.setattr(other_search_module, "_run_search", fake_run)
-    monkeypatch.setattr(other_search_module.settings, "other_cache_enabled", False)
+    monkeypatch.setattr(other_search_module.other_settings, "other_cache_enabled", False)
     monkeypatch.setattr(
         other_search_module,
         "get_diagnostics",
