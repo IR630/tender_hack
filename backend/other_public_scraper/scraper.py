@@ -124,6 +124,47 @@ def _merge_candidates(*groups: list[UrlCandidate]) -> list[UrlCandidate]:
     return list(merged.values())
 
 
+def _cap_per_domain(
+    products: list[OtherExtractResult],
+    *,
+    max_total: int,
+    hard_cap_per_domain: int,
+) -> list[OtherExtractResult]:
+    """
+    Диверсификация результатов по source_domain.
+
+    - Один домен в результатах → возвращаем как есть (top max_total
+      по relevance_score). Иначе обрезали бы единственный доступный
+      источник без альтернатив.
+    - Несколько доменов → не более hard_cap_per_domain с каждого,
+      сначала самые релевантные.
+
+    Returns: список, отсортированный по relevance_score убыв.,
+    длиной до max_total.
+    """
+    if not products:
+        return products
+
+    sorted_products = sorted(
+        products, key=lambda p: p.relevance_score, reverse=True
+    )
+    domains = {p.source_domain for p in sorted_products}
+    if len(domains) <= 1:
+        return sorted_products[:max_total]
+
+    seen_per_domain: dict[str, int] = {}
+    out: list[OtherExtractResult] = []
+    for p in sorted_products:
+        count = seen_per_domain.get(p.source_domain, 0)
+        if count >= hard_cap_per_domain:
+            continue
+        seen_per_domain[p.source_domain] = count + 1
+        out.append(p)
+        if len(out) >= max_total:
+            break
+    return out
+
+
 async def _fetch_and_extract(
     candidate: UrlCandidate, query: str, category: str
 ) -> list[OtherExtractResult]:
@@ -489,8 +530,11 @@ async def _search_once(
         except Exception:
             pass
 
-    products.sort(key=lambda p: p.relevance_score, reverse=True)
-    products = products[: settings.other_max_results]
+    products = _cap_per_domain(
+        products,
+        max_total=settings.other_max_results,
+        hard_cap_per_domain=settings.other_max_per_domain,
+    )
 
     logger.info(
         "other_search_done query=%r extracted=%d skipped=%d took_ms=%d",
