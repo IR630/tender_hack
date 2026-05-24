@@ -59,8 +59,7 @@ export function SourceGroup({ group, pending = false }: SourceGroupProps) {
   const moreInFlight = group.status === "loading_more" && visibleCount >= products.length;
   const hasHidden = visibleCount < products.length;
   const isExpanded = visibleCount > INITIAL_VISIBLE;
-  const fullyOpen = !hasHidden && !moreInFlight;
-  const canSort = fullyOpen && products.length > 1;
+  const canSort = products.length > 1 && !pending;
 
   const handleShowMore = () =>
     setVisibleCount((c) => Math.min(c + EXPANSION_SIZE, products.length));
@@ -69,18 +68,33 @@ export function SourceGroup({ group, pending = false }: SourceGroupProps) {
     setSortDir((dir) => (dir === "none" ? "asc" : dir === "asc" ? "desc" : "none"));
 
   return (
-    <section className="rounded-card border border-rule bg-paper-2 p-5">
-      <header className="mb-4 flex items-baseline justify-between gap-3 border-b border-rule pb-3">
+    <section className="min-w-0 rounded-card border border-rule bg-paper-2 p-5">
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-rule pb-3">
         <h2 className="text-base font-semibold tracking-display text-ink">{group.display_name}</h2>
-        <span className="tnum shrink-0 text-sm text-muted">
-          {pending ? (
-            "ищем…"
-          ) : (
-            <>
-              {group.count} · от <span className="text-ink-2">{formatPrice(group.min_price)}</span>
-            </>
+        <div className="flex flex-wrap items-center gap-2">
+          {canSort && (
+            <button
+              type="button"
+              onClick={handleToggleSort}
+              className="rounded-input border border-rule bg-paper px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:border-rule-2 hover:text-ink"
+            >
+              {sortDir === "asc"
+                ? "Цена ↑"
+                : sortDir === "desc"
+                  ? "Цена ↓"
+                  : "Сортировка"}
+            </button>
           )}
-        </span>
+          <span className="tnum shrink-0 text-sm text-muted">
+            {pending ? (
+              "ищем…"
+            ) : (
+              <>
+                {group.count} · от <span className="text-ink-2">{formatPrice(group.min_price)}</span>
+              </>
+            )}
+          </span>
+        </div>
       </header>
 
       {pending && group.products.length === 0 ? (
@@ -129,7 +143,7 @@ export function SourceGroup({ group, pending = false }: SourceGroupProps) {
             )}
           </ul>
 
-          {(hasHidden || moreInFlight || isExpanded || canSort) && (
+          {(hasHidden || moreInFlight || isExpanded) && (
             <div className="mt-4 flex flex-wrap gap-3">
               {(hasHidden || moreInFlight) && (
                 <button
@@ -141,19 +155,6 @@ export function SourceGroup({ group, pending = false }: SourceGroupProps) {
                   {moreInFlight
                     ? "Ищем ещё…"
                     : `Показать ещё ${Math.min(EXPANSION_SIZE, products.length - visibleCount)} ${productLabel(Math.min(EXPANSION_SIZE, products.length - visibleCount))}`}
-                </button>
-              )}
-              {canSort && (
-                <button
-                  type="button"
-                  onClick={handleToggleSort}
-                  className="rounded-input border border-rule bg-paper px-4 py-2 text-sm font-medium text-ink-2 transition-colors hover:border-rule-2 hover:text-ink"
-                >
-                  {sortDir === "asc"
-                    ? "Цена: по возрастанию ↑"
-                    : sortDir === "desc"
-                      ? "Цена: по убыванию ↓"
-                      : "Сортировать по цене"}
                 </button>
               )}
               {isExpanded && (

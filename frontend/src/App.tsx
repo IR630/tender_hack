@@ -21,6 +21,9 @@ const SOURCE_NAMES: Record<(typeof SOURCE_ORDER)[number], string> = {
 };
 
 const GRID_REVEAL_MS = 3000;
+// 2×2 lives in max-w-5xl; 4×1 is ~2× that width so each column is slightly narrower than a 2×2 cell.
+const GRID_WIDTH_COMPACT = "max-w-5xl";
+const GRID_WIDTH_LANDSCAPE = "max-w-[121rem]";
 
 function orderGroups(groups: SearchResponse["groups"]) {
   return SOURCE_ORDER.map((source) => groups.find((group) => group.source === source)).filter(
@@ -95,6 +98,7 @@ export default function App() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [searchStarted, setSearchStarted] = useState(false);
   const [gridRevealed, setGridRevealed] = useState(false);
+  const [gridCompact, setGridCompact] = useState(false);
   const pollRef = useRef<number | null>(null);
   const revealRef = useRef<number | null>(null);
   const mainRef = useRef<HTMLElement>(null);
@@ -255,7 +259,8 @@ export default function App() {
         </div>
       </header>
 
-      <main ref={mainRef} className="relative mx-auto w-full max-w-5xl flex-1 px-5 pb-20 pt-10 sm:pt-14">
+      <main ref={mainRef} className="relative flex-1 pb-20 pt-10 sm:pt-14">
+        <div className="mx-auto w-full max-w-5xl px-5">
         <section className="max-w-2xl">
           <h1 className="text-balance break-words font-display text-4xl font-medium leading-[1.08] tracking-display text-ink [overflow-wrap:anywhere] sm:text-5xl">
             Сравните цены на одной странице
@@ -301,9 +306,14 @@ export default function App() {
           query={query}
           statusMessage={statusMessage}
         />
+        </div>
 
         {showGrid && (
-          <div ref={resultsRef} className="mt-12 scroll-mt-24 space-y-8">
+          <div
+            ref={resultsRef}
+            className={`mx-auto mt-12 w-full scroll-mt-24 px-5 ${gridCompact ? GRID_WIDTH_COMPACT : GRID_WIDTH_LANDSCAPE}`}
+          >
+            <div className="space-y-8">
             {showSummary && displaySummary && (
               <section className="border-y border-rule py-5" aria-live="polite">
                 <dl className="flex flex-wrap items-end gap-x-10 gap-y-4">
@@ -361,7 +371,18 @@ export default function App() {
               </div>
             )}
 
-            <div className="grid gap-5 md:grid-cols-2">
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setGridCompact((value) => !value)}
+                className="rounded-input border border-rule bg-paper px-4 py-2 text-sm font-medium text-ink-2 transition-colors hover:border-rule-2 hover:text-ink"
+                aria-pressed={gridCompact}
+              >
+                {gridCompact ? "Вид: 2×2" : "Вид: 4×1"}
+              </button>
+            </div>
+
+            <div className={`grid gap-5 ${gridCompact ? "grid-cols-2" : "grid-cols-4"}`}>
               {fixedGroups.map((group) => (
                 <SourceGroup
                   key={group.source}
@@ -369,6 +390,7 @@ export default function App() {
                   pending={loading && !presentSources.has(group.source)}
                 />
               ))}
+            </div>
             </div>
           </div>
         )}
