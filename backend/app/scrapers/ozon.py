@@ -10,6 +10,7 @@ from ozon_public_scraper import OzonPublicScraper, ScraperError
 
 class OzonScraper(BaseScraper):
     source = "ozon"
+    FULL_LIMIT = 15
 
     def __init__(self) -> None:
         self._public = OzonPublicScraper()
@@ -21,18 +22,10 @@ class OzonScraper(BaseScraper):
 
     async def _search_browser(self, request: SearchRequest, *, on_partial=None) -> list[Product]:
         self.clear_error()
-        raw, error, status = await ozon_browser.search_products(
-            request.query.strip(), region=request.region
-        )
-        if status == ozon_browser.OZON_WAF_STATUS:
-            self.set_source_status(status)
-            self.set_error(error or ozon_browser.OZON_WAF_MESSAGE)
-            return []
-        if error:
-            self.set_error(error)
-            return []
-        products = [
-            Product(
+        partial_sent = False
+
+        def _to_product(item) -> Product:
+            return Product(
                 source="ozon",
                 source_domain="ozon.ru",
                 title=str(item["title"]),
@@ -48,9 +41,31 @@ class OzonScraper(BaseScraper):
                     else None
                 ),
             )
-            for item in raw
-        ]
-        if on_partial and products:
+
+        async def _on_partial_raw(raw_items) -> None:
+            nonlocal partial_sent
+            if partial_sent or not on_partial or not raw_items:
+                return
+            partial_sent = True
+            try:
+                await on_partial([_to_product(item) for item in raw_items[: self.FAST_LIMIT]])
+            except Exception:
+                pass
+
+        raw, error, status = await ozon_browser.search_products(
+            request.query.strip(),
+            region=request.region,
+            on_partial_raw=_on_partial_raw if on_partial else None,
+        )
+        if status == ozon_browser.OZON_WAF_STATUS:
+            self.set_source_status(status)
+            self.set_error(error or ozon_browser.OZON_WAF_MESSAGE)
+            return []
+        if error:
+            self.set_error(error)
+            return []
+        products = [_to_product(item) for item in raw]
+        if on_partial and products and not partial_sent:
             try:
                 await on_partial(products[: self.FAST_LIMIT])
             except Exception:
@@ -92,8 +107,6 @@ class OzonScraper(BaseScraper):
 
 
 scraper = OzonScraper()
-
-
 
 
 

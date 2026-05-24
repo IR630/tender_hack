@@ -3,8 +3,14 @@ from other_public_scraper.query_variants import search_query_variants
 
 def test_iphone_se_variant():
     variants = search_query_variants("iphone 10 se")
-    assert variants == ["iphone 10 se", "iphone se"]
-    assert search_query_variants("ноутбук") == ["ноутбук"]
+    assert variants[:2] == ["iphone 10 se", "iphone se"]
+    assert "iphone 10 se купить" in variants
+    assert search_query_variants("ноутбук") == [
+        "ноутбук",
+        "ноутбук купить",
+        "ноутбук цена",
+        "ноутбук интернет-магазин",
+    ]
 
 
 def test_cyrillic_iphone_variant():

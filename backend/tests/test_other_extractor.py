@@ -33,15 +33,19 @@ def test_extract_product_from_json_ld():
 
 
 def test_extract_product_replaces_suspicious_one_ruble_price():
-    html = """
+    title = (
+        "Мужские трусы CK Flag 110 Материал: 95% ХЛОПОК 5% ЛАЙКРА "
+        "699 руб."
+    )
+    html = f"""
     <html><head>
-      <meta property="og:title" content="Мужские трусы CK Flag 110 Материал: 95% ХЛОПОК 5% ЛАЙКРА 699 руб.">
-      <meta property="og:description" content="Мужские трусы CK Flag 110 Материал: 95% ХЛОПОК 5% ЛАЙКРА 699 руб.">
+      <meta property="og:title" content="{title}">
+      <meta property="og:description" content="{title}">
       <meta property="product:price:amount" content="1">
       <meta property="og:image" content="https://fit-trus.ru/test.jpg">
     </head><body>
       <div>Открыть на маркетплейсе 1 ₽</div>
-      <div>Мужские трусы CK Flag 110 Материал: 95% ХЛОПОК 5% ЛАЙКРА 699 руб.</div>
+      <div>{title}</div>
     </body></html>
     """
 
@@ -111,3 +115,12 @@ def test_is_category_listing():
         "https://novosibirsk.beeline.ru/shop/details/mysh-provodnaya-logitech-m90-black/",
     )
     assert not is_product_page_url("https://novosibirsk.e2e4online.ru/catalog/myshi-18/")
+    assert not is_product_page_url("https://www.re-store.ru/catalog/iphone-16/")
+    assert is_category_listing(
+        "iPhone 16 купить в интернет-магазине",
+        "https://www.re-store.ru/catalog/iphone-16/",
+    )
+    assert is_category_listing(
+        "Магазины мужских трусов в Санкт-Петербурге",
+        "https://example.ru/catalog/trusy/",
+    )

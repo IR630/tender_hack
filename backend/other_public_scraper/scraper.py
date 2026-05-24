@@ -6,16 +6,10 @@ import re
 import time
 from urllib.parse import urlparse
 
-from other_public_scraper.config import (
-    CLOTHES_NEGATIVE,
-    DOMAIN_BLACKLIST,
-    ORGTECH_BRANDS,
-    settings,
-)
+from other_public_scraper.config import DOMAIN_BLACKLIST, settings
 from other_public_scraper.diagnostics import active_diagnostics, reset_diagnostics
 from other_public_scraper.domain_strategies import listing_domain_key
 from other_public_scraper.ml.query_classifier import classify_query
-from other_public_scraper.ml.relevance_filter import cosine_similarity_batch, rank_candidates
 from other_public_scraper.models import MeiliProductDoc, OtherExtractResult, UrlCandidate
 from other_public_scraper.pipelines.catalog_harvest import _extract_links, expand_listing_candidates
 from other_public_scraper.pipelines.page_extractor import (
@@ -31,12 +25,32 @@ from other_public_scraper.url_heuristics import (
     filter_and_sort_candidates,
     is_fetch_blocked,
     is_rejected_url,
+    looks_like_listing_url,
     url_quality_score,
 )
 
 logger = logging.getLogger(__name__)
 
 TIRES_RE = re.compile(r"\d{3}/\d{2}\s*R?\d{2}", re.IGNORECASE)
+_WORD_RE = re.compile(r"[a-zа-яё0-9]+", re.IGNORECASE)
+_BAD_TITLE_RE = re.compile(
+    r"(?:"
+    r"добавить\s+товар"
+    r"|нет\s+в\s+наличии"
+    r"|распродажа"
+    r"|каталог"
+    r")",
+    re.IGNORECASE,
+)
+
+_QUERY_ALIASES: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
+    (("трус",), ("трус", "боксер", "боксёр", "слип", "бриф")),
+    (("очк",), ("очк", "оправ", "линз", "rayban", "ray-ban", "ray ban")),
+    (("шин", "резин"), ("шин", "резин", "tyre", "tire")),
+    (("мыш",), ("мыш", "mouse")),
+    (("ноут",), ("ноут", "laptop", "notebook")),
+    (("смартфон", "телефон", "iphone", "айфон"), ("смартфон", "телефон", "iphone", "айфон")),
+)
 
 
 def _domain(url: str) -> str:
@@ -47,69 +61,6 @@ def _domain(url: str) -> str:
 def _is_blacklisted(url: str) -> bool:
     domain = _domain(url)
     return domain in DOMAIN_BLACKLIST or any(b in domain for b in DOMAIN_BLACKLIST)
-
-
-def _passes_category_sanity(title: str, query: str, category: str) -> bool:
-    title_lower = title.lower()
-    query_lower = query.lower()
-    if category == "tires":
-        return bool(TIRES_RE.search(title) or TIRES_RE.search(query) or "шин" in query_lower)
-    if category == "orgtech":
-        if any(brand in title_lower or brand in query_lower for brand in ORGTECH_BRANDS):
-            return True
-        generic = (
-            "ноутбук",
-            "принтер",
-            "монитор",
-            "клавиатура",
-            "мыш",
-            "компьютер",
-            "айфон",
-            "iphone",
-            "смартфон",
-            "smartfon",
-            "телефон",
-        )
-        return any(word in title_lower or word in query_lower for word in generic)
-    if category == "clothes":
-        return not any(word in title_lower for word in CLOTHES_NEGATIVE)
-    return True
-
-
-def _is_title_relevant(title: str, query: str, category: str) -> bool:
-    title_sim = cosine_similarity_batch(query, title)
-    if title_sim >= settings.other_title_similarity_threshold:
-        return True
-    query_lower = query.lower()
-    if category == "tires" or "шин" in query_lower or "резин" in query_lower:
-        if TIRES_RE.search(title) or TIRES_RE.search(query) or "шин" in query_lower:
-            return True
-    if category == "orgtech":
-        generic = (
-            "ноутбук",
-            "принтер",
-            "монитор",
-            "клавиатура",
-            "мыш",
-            "компьютер",
-            "айфон",
-            "iphone",
-        )
-        title_lower = title.lower()
-        if any(word in title_lower or word in query_lower for word in generic):
-            return True
-    if re.search(r"очк", query_lower):
-        optics_terms = ("очк", "оправ", "ray-ban", "ray ban", "диоптр", "linz", "линз", "optik", "оптик")
-        if any(term in title.lower() for term in optics_terms):
-            return True
-    return False
-
-
-def _title_relevance_score(title: str, query: str, category: str) -> float:
-    title_sim = cosine_similarity_batch(query, title)
-    if _is_title_relevant(title, query, category):
-        return max(title_sim, settings.other_title_similarity_threshold)
-    return title_sim
 
 
 def _merge_candidates(*groups: list[UrlCandidate]) -> list[UrlCandidate]:
@@ -124,34 +75,59 @@ def _merge_candidates(*groups: list[UrlCandidate]) -> list[UrlCandidate]:
     return list(merged.values())
 
 
+def _stem(token: str) -> str:
+    token = token.lower().replace("ё", "е")
+    if token.isdigit():
+        return token
+    return token[: max(3, min(len(token), len(token) - 1))]
+
+
+def _query_needles(query: str) -> tuple[set[str], set[str]]:
+    tokens = [
+        _stem(token)
+        for token in _WORD_RE.findall(query)
+        if token.isdigit() or len(token) > 2
+    ]
+    numeric = {token for token in tokens if token.isdigit()}
+    words = {token for token in tokens if not token.isdigit()}
+    for triggers, aliases in _QUERY_ALIASES:
+        if any(trigger in words for trigger in triggers):
+            words.update(_stem(alias) for alias in aliases)
+    return words, numeric
+
+
+def _is_title_relevant_to_query(title: str, query: str) -> bool:
+    title_lower = title.lower().replace("ё", "е")
+    if _BAD_TITLE_RE.search(title_lower):
+        return False
+    words, numeric = _query_needles(query)
+    if numeric and not all(number in title_lower for number in numeric):
+        return False
+    if not words:
+        return True
+    title_tokens = {_stem(token) for token in _WORD_RE.findall(title_lower)}
+    return bool(words & title_tokens) or any(word in title_lower for word in words)
+
+
+def _is_final_product_result(item: OtherExtractResult) -> bool:
+    if looks_like_listing_url(item.product_url):
+        return False
+    return not is_category_listing(item.title, item.product_url)
+
+
 def _cap_per_domain(
     products: list[OtherExtractResult],
     *,
     max_total: int,
     hard_cap_per_domain: int,
 ) -> list[OtherExtractResult]:
-    """
-    Диверсификация результатов по source_domain.
-
-    - Один домен в результатах → возвращаем как есть (top max_total
-      по relevance_score). Иначе обрезали бы единственный доступный
-      источник без альтернатив.
-    - Несколько доменов → не более hard_cap_per_domain с каждого,
-      сначала самые релевантные.
-
-    Returns: список, отсортированный по relevance_score убыв.,
-    длиной до max_total.
-    """
+    """Return up to hard_cap_per_domain products from each domain, max_total overall."""
     if not products:
         return products
 
     sorted_products = sorted(
         products, key=lambda p: p.relevance_score, reverse=True
     )
-    domains = {p.source_domain for p in sorted_products}
-    if len(domains) <= 1:
-        return sorted_products[:max_total]
-
     seen_per_domain: dict[str, int] = {}
     out: list[OtherExtractResult] = []
     for p in sorted_products:
@@ -165,9 +141,7 @@ def _cap_per_domain(
     return out
 
 
-async def _fetch_and_extract(
-    candidate: UrlCandidate, query: str, category: str
-) -> list[OtherExtractResult]:
+async def _fetch_and_extract(candidate: UrlCandidate, query: str) -> list[OtherExtractResult]:
     url_short = candidate.url[:90]
     use_meili_cache = (
         settings.other_meili_read_enabled
@@ -177,16 +151,15 @@ async def _fetch_and_extract(
         and candidate.title
     )
     if use_meili_cache:
-        title_sim = _title_relevance_score(candidate.title, query, category)
-        if not _is_title_relevant(candidate.title, query, category):
-            active_diagnostics().note_failure(
-                f"Meili: низкая релевантность {title_sim:.2f} — {url_short}"
-            )
+        if looks_like_listing_url(candidate.url) or is_category_listing(
+            candidate.title, candidate.url
+        ):
             active_diagnostics().extract_failed += 1
+            active_diagnostics().note_failure(f"Meili: каталог, не товар — {url_short}")
             return []
-        if not _passes_category_sanity(candidate.title, query, category):
+        if not _is_title_relevant_to_query(candidate.title, query):
             active_diagnostics().extract_failed += 1
-            active_diagnostics().note_failure(f"Категория не прошла проверку — {url_short}")
+            active_diagnostics().note_failure(f"Meili: нерелевантно — {candidate.title[:50]}")
             return []
         active_diagnostics().extract_ok += 1
         return [
@@ -199,7 +172,7 @@ async def _fetch_and_extract(
                 source_domain=candidate.domain or _domain(candidate.url),
                 confidence=1.0,
                 extraction_method="meili_cache",
-                relevance_score=title_sim,
+                relevance_score=max(candidate.similarity, 1.0),
             )
         ]
 
@@ -218,11 +191,11 @@ async def _fetch_and_extract(
     if listing:
         accepted: list[OtherExtractResult] = []
         for extracted in listing:
-            if not _is_title_relevant(extracted.title, query, category):
+            if not _is_final_product_result(extracted):
                 continue
-            if not _passes_category_sanity(extracted.title, query, category):
+            if not _is_title_relevant_to_query(extracted.title, query):
                 continue
-            extracted.relevance_score = _title_relevance_score(extracted.title, query, category)
+            extracted.relevance_score = max(extracted.relevance_score, candidate.similarity)
             accepted.append(extracted)
         if accepted:
             active_diagnostics().extract_ok += len(accepted)
@@ -237,22 +210,15 @@ async def _fetch_and_extract(
         active_diagnostics().extract_failed += 1
         active_diagnostics().note_failure(f"Нет title/price/image — {url_short}")
         return []
-    if is_category_listing(extracted.title, extracted.product_url):
+    if not _is_final_product_result(extracted):
         active_diagnostics().extract_failed += 1
         active_diagnostics().note_failure(f"Страница каталога, не товар — {url_short}")
         return []
-    title_sim = _title_relevance_score(extracted.title, query, category)
-    if not _is_title_relevant(extracted.title, query, category):
+    if not _is_title_relevant_to_query(extracted.title, query):
         active_diagnostics().extract_failed += 1
-        active_diagnostics().note_failure(
-            f"Низкая релевантность {title_sim:.2f} — {extracted.title[:50]}"
-        )
+        active_diagnostics().note_failure(f"Нерелевантно — {extracted.title[:50]}")
         return []
-    if not _passes_category_sanity(extracted.title, query, category):
-        active_diagnostics().extract_failed += 1
-        active_diagnostics().note_failure(f"Категория не прошла проверку — {extracted.title[:50]}")
-        return []
-    extracted.relevance_score = title_sim
+    extracted.relevance_score = max(extracted.relevance_score, candidate.similarity)
     active_diagnostics().extract_ok += 1
     return [extracted]
 
@@ -343,40 +309,20 @@ async def _resolve_listing_grid_url(url: str) -> str:
 def _accept_listing_products(
     listing: list[OtherExtractResult],
     query: str,
-    category: str,
     seen: set[str],
 ) -> list[OtherExtractResult]:
     accepted: list[OtherExtractResult] = []
     for extracted in listing:
-        if not _is_title_relevant(extracted.title, query, category):
+        if not _is_final_product_result(extracted):
             continue
-        if not _passes_category_sanity(extracted.title, query, category):
-            continue
-        key = extracted.product_url.split("#")[0]
-        if key in seen:
-            continue
-        seen.add(key)
-        extracted.relevance_score = _title_relevance_score(extracted.title, query, category)
-        accepted.append(extracted)
-        active_diagnostics().extract_ok += 1
-    if accepted:
-        return accepted
-    for extracted in sorted(listing, key=lambda item: item.relevance_score, reverse=True):
-        if not _passes_category_sanity(extracted.title, query, category):
-            continue
-        if is_category_listing(extracted.title, extracted.product_url):
+        if not _is_title_relevant_to_query(extracted.title, query):
             continue
         key = extracted.product_url.split("#")[0]
         if key in seen:
             continue
         seen.add(key)
-        extracted.relevance_score = max(
-            extracted.relevance_score,
-            settings.other_title_similarity_threshold,
-        )
         accepted.append(extracted)
         active_diagnostics().extract_ok += 1
-        break
     return accepted
 
 
@@ -397,7 +343,6 @@ def _unique_domain_listing_candidates(candidates: list[UrlCandidate]) -> list[Ur
 async def _collect_listing_grid_products(
     candidates: list[UrlCandidate],
     query: str,
-    category: str,
     *,
     max_pages: int = 5,
 ) -> list[OtherExtractResult]:
@@ -416,7 +361,7 @@ async def _collect_listing_grid_products(
             relevance_score=candidate.similarity,
             max_items=settings.other_listing_products_per_page,
         )
-        accepted = _accept_listing_products(listing, query, category, seen)
+        accepted = _accept_listing_products(listing, query, seen)
         products.extend(accepted)
     products.sort(key=lambda item: item.relevance_score, reverse=True)
     return products
@@ -424,6 +369,11 @@ async def _collect_listing_grid_products(
 
 _FAST_LIMIT = 5
 _FULL_LIMIT = settings.other_max_results
+
+
+def _rank_search_candidates(candidates: list[UrlCandidate], *, limit: int) -> list[UrlCandidate]:
+    """Simple mode: try product-looking URLs first, then everything else."""
+    return sorted(candidates, key=lambda c: url_quality_score(c.url), reverse=True)[:limit]
 
 
 async def _search_once(
@@ -450,9 +400,16 @@ async def _search_once(
 
     live_hits = await search_live_urls_expanded(
         geo_query,
-        limit=settings.other_max_searxng_urls,
+        limit=max(settings.other_max_searxng_urls, settings.other_max_results * 3),
         category=category,
     )
+    if not live_hits and geo_query != query:
+        logger.info("other_search_geo_empty query=%r geo_query=%r retry_plain", query, geo_query)
+        live_hits = await search_live_urls_expanded(
+            query,
+            limit=max(settings.other_max_searxng_urls, settings.other_max_results * 3),
+            category=category,
+        )
     diag.live_urls = len(live_hits)
     diag.live_sample = [c.url[:90] for c in live_hits[:5]]
     meili_hits: list[UrlCandidate] = []
@@ -479,13 +436,17 @@ async def _search_once(
     candidates.sort(key=lambda c: url_quality_score(c.url), reverse=True)
     grid_products: list[OtherExtractResult] = []
     if category != "unknown":
-        grid_products = await _collect_listing_grid_products(candidates, query, category)
+        grid_products = await _collect_listing_grid_products(candidates, query)
 
     harvested_candidates = candidates
-    if grid_products and len(grid_products) < settings.other_max_results:
+    if candidates and len(grid_products) < settings.other_max_results:
         try:
             harvested_candidates = await asyncio.wait_for(
-                expand_listing_candidates(candidates),
+                expand_listing_candidates(
+                    candidates,
+                    per_listing=settings.other_max_per_domain,
+                    max_listings=settings.other_max_results,
+                ),
                 timeout=settings.other_catalog_harvest_budget_seconds,
             )
         except TimeoutError:
@@ -498,8 +459,8 @@ async def _search_once(
 
     candidates = filter_and_sort_candidates(harvested_candidates)
 
-    if grid_products and len(grid_products) < settings.other_max_results:
-        extra_grid = await _collect_listing_grid_products(candidates, query, category)
+    if len(grid_products) < settings.other_max_results:
+        extra_grid = await _collect_listing_grid_products(candidates, query)
         seen_grid = {item.product_url.split("#")[0] for item in grid_products}
         for item in extra_grid:
             key = item.product_url.split("#")[0]
@@ -511,10 +472,28 @@ async def _search_once(
     # Accumulate products starting from grid results
     products: list[OtherExtractResult] = []
     seen_product_urls: set[str] = set()
-    for item in grid_products:
+    seen_per_domain: dict[str, int] = {}
+
+    def _append_product(item: OtherExtractResult) -> bool:
+        if not _is_final_product_result(item):
+            return False
+        if not _is_title_relevant_to_query(item.title, query):
+            return False
         key = item.product_url.split("#")[0]
+        if key in seen_product_urls:
+            return False
+        count = seen_per_domain.get(item.source_domain, 0)
+        if count >= settings.other_max_per_domain:
+            return False
         seen_product_urls.add(key)
+        seen_per_domain[item.source_domain] = count + 1
         products.append(item)
+        return True
+
+    for item in grid_products:
+        _append_product(item)
+        if len(products) >= settings.other_max_results:
+            break
 
     ranked: list = []
     skipped = 0
@@ -522,38 +501,19 @@ async def _search_once(
 
     if len(products) < settings.other_max_results:
         rank_pool = min(settings.other_rank_pool_size, len(candidates))
-        ranked = rank_candidates(
-            query,
-            candidates,
-            threshold=settings.other_snippet_similarity_threshold,
-            limit=rank_pool,
-        )
+        ranked = _rank_search_candidates(candidates, limit=rank_pool)
         if not ranked and candidates:
             logger.info(
                 "other_search_rank_fallback query=%r using_unfiltered=%d",
                 query,
                 min(rank_pool, len(candidates)),
             )
-            ranked = sorted(
-                candidates, key=lambda c: url_quality_score(c.url), reverse=True
-            )[:rank_pool]
-        elif len(ranked) < rank_pool and candidates:
-            seen_urls = {c.url for c in ranked}
-            for candidate in sorted(
-                candidates, key=lambda c: url_quality_score(c.url), reverse=True
-            ):
-                if candidate.url in seen_urls:
-                    continue
-                ranked.append(candidate)
-                seen_urls.add(candidate.url)
-                if len(ranked) >= rank_pool:
-                    break
         else:
             logger.info("other_search_ranked query=%r ranked=%d", query, len(ranked))
         diag.candidates_ranked = len(ranked)
 
         tasks = [
-            asyncio.create_task(_fetch_and_extract(candidate, query, category))
+            asyncio.create_task(_fetch_and_extract(candidate, query))
             for candidate in ranked
         ]
 
@@ -571,11 +531,8 @@ async def _search_once(
                 skipped += 1
 
             for item in group:
-                key = item.product_url.split("#")[0]
-                if key in seen_product_urls:
-                    continue
-                seen_product_urls.add(key)
-                products.append(item)
+                if not _append_product(item):
+                    skipped += 1
 
             if on_partial and not fast_published and len(products) >= _FAST_LIMIT:
                 try:
@@ -594,13 +551,9 @@ async def _search_once(
                 break
 
     if category == "unknown":
-        extra_grid = await _collect_listing_grid_products(candidates, query, category, max_pages=3)
+        extra_grid = await _collect_listing_grid_products(candidates, query, max_pages=3)
         for item in extra_grid:
-            key = item.product_url.split("#")[0]
-            if key in seen_product_urls:
-                continue
-            seen_product_urls.add(key)
-            products.append(item)
+            _append_product(item)
             if len(products) >= settings.other_max_results:
                 break
 
@@ -613,6 +566,8 @@ async def _search_once(
             pass
 
     hard_cap_per_domain = settings.other_max_per_domain
+
+    products = [item for item in products if _is_final_product_result(item)]
 
     products = _cap_per_domain(
         products,
@@ -648,7 +603,10 @@ async def _search_once(
         for item in products
     ]
     if docs:
-        await upsert_products(docs)
+        try:
+            await upsert_products(docs)
+        except Exception as exc:
+            logger.warning("other_meili_upsert_failed count=%d error=%s", len(docs), exc)
 
     return products
 

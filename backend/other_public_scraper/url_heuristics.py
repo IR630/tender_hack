@@ -50,16 +50,19 @@ _FOREIGN_LOCALE_RE = re.compile(
 
 _PRODUCT_PATH_RE = re.compile(
     r"(?:"
-    r"/product/"
-    r"|/products?/"
+    r"/products?/"
     r"|/p/\d"
     r"|/item/"
     r"|/goods/"
-    r"|/tyre[s]?/"
-    r"|/shina/"
-    r"|/catalog/\d+"
+    r"|/tovar/"
+    r"|/card/"
+    r"|/(?:shop/)?details/"
+    r"|/catalog/(?:item|detail)/"
+    r"|/catalog_shin/"
+    r"|/razmer/"
     r"|/\d{6,}"
     r"|/\d{3}-\d{2}-\d{2}/?"
+    r"|[_-]shina[_-]"
     r")",
     re.IGNORECASE,
 )
@@ -71,6 +74,52 @@ _CATALOG_PATH_RE = re.compile(
     r"|/categories/"
     r"|/smartfony/"
     r"|/collection/"
+    r")",
+    re.IGNORECASE,
+)
+
+_TIRE_SIZE_RE = re.compile(r"\d{3}[-/]\d{2}[-/]R?\d{2}", re.IGNORECASE)
+
+_LISTING_SLUGS = frozenset(
+    {
+        "apple-iphone",
+        "apple_iphone",
+        "catalog.html",
+        "iphone",
+        "iphone-15",
+        "iphone-16",
+        "iphone-se",
+        "klaviatury",
+        "monitory",
+        "naushniki",
+        "noutbuki",
+        "planshety",
+        "printery",
+        "shiny",
+        "smartfony",
+        "tyre",
+        "tyres",
+    }
+)
+_LISTING_PREFIXES = (
+    "brand_",
+    "category_",
+    "klaviatury",
+    "myshi",
+    "mysi",
+    "printery",
+)
+_MODEL_FAMILY_RE = re.compile(
+    r"^(?:apple[-_])?iphone(?:[-_]\d{1,2})?(?:[-_](?:se|pro|max|plus|mini))*$",
+    re.IGNORECASE,
+)
+_PRODUCT_DETAIL_SLUG_RE = re.compile(
+    r"(?:"
+    r"\d{5,}"
+    r"|\d{2,4}(?:gb|tb)"
+    r"|(?:gb|tb)[-_]?\d{2,4}"
+    r"|black|white|blue|green|red|pink|gray|grey|silver|gold|purple"
+    r"|titan|natural|midnight|starlight"
     r")",
     re.IGNORECASE,
 )
@@ -104,20 +153,64 @@ def is_ru_domain(url: str) -> bool:
     return host.endswith(".ru") or host.endswith(".рф")
 
 
-def _looks_like_product_path(path: str) -> bool:
+def _path_segments(path: str) -> list[str]:
+    return [part for part in path.split("/") if part]
+
+
+def _looks_like_listing_slug(slug: str) -> bool:
+    lowered = slug.lower().replace("_", "-")
+    return (
+        slug.lower() in _LISTING_SLUGS
+        or lowered in _LISTING_SLUGS
+        or slug.lower().startswith(_LISTING_PREFIXES)
+        or bool(_MODEL_FAMILY_RE.match(lowered))
+    )
+
+
+def _catalog_slug_is_product(slug: str) -> bool:
+    lowered = slug.lower()
+    if _looks_like_listing_slug(lowered):
+        return False
+    if lowered.isdigit():
+        return len(lowered) >= 5
+    if _PRODUCT_DETAIL_SLUG_RE.search(lowered):
+        return True
+    return False
+
+
+def looks_like_product_url(url: str) -> bool:
+    """True when the path is a concrete product URL, not a catalog family page."""
+    path = urlparse(url).path.lower()
     if _PRODUCT_PATH_RE.search(path):
         return True
-    segments = [part for part in path.split("/") if part]
+    if _TIRE_SIZE_RE.search(path):
+        return True
+    segments = _path_segments(path)
+    if not segments:
+        return False
+    if segments[-1].isdigit():
+        if "catalog" in segments and len(segments[-1]) < 5:
+            return False
+        return True
+    if "product" in segments:
+        return True
     if "catalog" in segments and len(segments) == 2:
         slug = segments[-1].lower()
-        if slug.startswith("brand_"):
-            return False
-        listing_slugs = {
-            "naushniki", "smartfony", "noutbuki", "planshety", "monitory", "shiny", "tyres",
-        }
-        listing_prefixes = ("myshi", "mysi", "klaviatury", "printery")
-        if slug in listing_slugs or slug.startswith(listing_prefixes):
-            return False
+        return _catalog_slug_is_product(slug)
+    return False
+
+
+def looks_like_listing_url(url: str) -> bool:
+    """True for catalog/listing/search pages that can be expanded into products."""
+    if is_rejected_url(url) or looks_like_product_url(url):
+        return False
+    path = urlparse(url).path.lower()
+    segments = _path_segments(path)
+    if not segments:
+        return True
+    if _CATALOG_PATH_RE.search(path):
+        return True
+    if any(_looks_like_listing_slug(segment) for segment in segments):
         return True
     return False
 
@@ -127,8 +220,8 @@ def url_quality_score(url: str) -> float:
     if is_rejected_url(url):
         return -1.0
     path = urlparse(url).path
-    has_product = _looks_like_product_path(path)
-    has_catalog = bool(_CATALOG_PATH_RE.search(path))
+    has_product = looks_like_product_url(url)
+    has_catalog = looks_like_listing_url(url) or bool(_CATALOG_PATH_RE.search(path))
     if has_catalog and not has_product:
         return -1.0
     score = 0.2

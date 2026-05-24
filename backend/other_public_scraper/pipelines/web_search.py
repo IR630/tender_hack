@@ -15,6 +15,7 @@ from other_public_scraper.pipelines.yahoo_search import search_yahoo_urls
 from other_public_scraper.query_variants import search_query_variants
 from other_public_scraper.url_heuristics import (
     filter_and_sort_candidates,
+    looks_like_listing_url,
     url_quality_score,
 )
 
@@ -29,6 +30,19 @@ def _merge_live(*groups: list[UrlCandidate]) -> list[UrlCandidate]:
             if key not in merged:
                 merged[key] = item
     return list(merged.values())
+
+
+def _select_live_candidates(candidates: list[UrlCandidate], *, limit: int) -> list[UrlCandidate]:
+    """Keep concrete product URLs plus listing seeds for the catalog expander."""
+    if not candidates:
+        return []
+    product_hits = [
+        item
+        for item in filter_and_sort_candidates(candidates)
+        if url_quality_score(item.url) >= 0
+    ]
+    listing_seeds = [item for item in candidates if looks_like_listing_url(item.url)]
+    return _merge_live(product_hits, listing_seeds)[:limit]
 
 
 async def _run_provider(
@@ -68,7 +82,7 @@ async def search_live_urls(
             groups.append(hits)
 
     merged_raw = _merge_live(*groups) if groups else []
-    merged = filter_and_sort_candidates(merged_raw)[:limit] if merged_raw else []
+    merged = _select_live_candidates(merged_raw, limit=limit)
     if merged:
         diag = active_diagnostics()
         diag.live_provider = "+".join(providers_ok)
@@ -92,6 +106,7 @@ async def search_live_urls(
             asyncio.create_task(search_bing_urls(query, limit=limit)),
         )
         source_counts["bing"] = len(bing_hits)
+        bing_hits = _select_live_candidates(bing_hits, limit=limit)
         if bing_hits:
             diag = active_diagnostics()
             diag.live_provider = "bing"
@@ -119,10 +134,8 @@ async def search_live_urls_expanded(
     limit = limit or settings.other_max_searxng_urls
     variants = search_query_variants(query)
     variant_tasks = [
-        search_live_urls(variant, limit=limit, allow_fallbacks=False) for variant in variants[:3]
+        search_live_urls(variant, limit=limit, allow_fallbacks=True) for variant in variants
     ]
     groups = await asyncio.gather(*variant_tasks)
     merged = _merge_live(*groups)
-    merged = filter_and_sort_candidates(merged)
-    merged = [item for item in merged if url_quality_score(item.url) >= 0][:limit]
-    return merged
+    return _select_live_candidates(merged, limit=limit)

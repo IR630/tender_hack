@@ -3,9 +3,10 @@ from __future__ import annotations
 import re
 from urllib.parse import urljoin, urlparse
 
-from other_public_scraper.parsers.listing_grid import extract_dom_listing_products
 from other_public_scraper.models import OtherExtractResult
 from other_public_scraper.parsers.adapters.base import get_adapter
+from other_public_scraper.parsers.listing_grid import extract_dom_listing_products
+from other_public_scraper.url_heuristics import looks_like_product_url
 from ozon_public_scraper.parsers.json_ld import (
     extract_all_products_from_json_ld,
     extract_product_from_json_ld,
@@ -23,6 +24,15 @@ _ITEMPROP_PRICE_RE = re.compile(
 )
 _CATEGORY_TITLE_RE = re.compile(
     r"(?:купить\s+от|интернет[-\s]магазин|каталог\s+\w+\s+купить)",
+    re.IGNORECASE,
+)
+_CATEGORY_PHRASE_RE = re.compile(
+    r"(?:"
+    r"\bмагазины?\b"
+    r"|страница\s+каталог"
+    r"|каталог\s+товаров"
+    r"|подборк[аи]\s+товаров"
+    r")",
     re.IGNORECASE,
 )
 PRICE_RE = re.compile(r"(\d[\d\s\u202f]*)\s*(?:₽|руб\.?)", re.IGNORECASE)
@@ -76,42 +86,14 @@ def _path_segments(url: str) -> list[str]:
     return [part for part in urlparse(url).path.split("/") if part]
 
 
-def _looks_like_listing_slug(slug: str) -> bool:
-    listing_slugs = {
-        "naushniki", "smartfony", "noutbuki", "planshety", "monitory", "shiny", "tyres",
-    }
-    listing_prefixes = ("myshi", "mysi", "klaviatury", "printery")
-    return slug in listing_slugs or slug.startswith(listing_prefixes)
-
-
 def is_product_page_url(url: str) -> bool:
-    path = urlparse(url).path.lower()
-    if re.search(
-        r"/(?:product(?:s)?|goods|details|shop/details|catalog/(?:item|detail))/",
-        path,
-    ):
-        return True
-    segments = _path_segments(url)
-    if not segments:
-        return False
-    if segments[-1].isdigit():
-        return True
-    if "product" in segments:
-        return True
-    if "catalog" in segments and len(segments) == 2:
-        slug = segments[-1].lower()
-        if slug.startswith("brand_"):
-            return False
-        if _looks_like_listing_slug(slug):
-            return False
-        if not any(c.isdigit() for c in slug) and "-" in slug:
-            return False
-        return True
-    return False
+    return looks_like_product_url(url)
 
 
 def is_category_listing(title: str, url: str) -> bool:
     title_lower = title.lower()
+    if _CATEGORY_PHRASE_RE.search(title_lower):
+        return True
     if " купить в " in title_lower and not any(c.isdigit() for c in title):
         return True
     if is_product_page_url(url):

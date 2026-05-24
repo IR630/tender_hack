@@ -2,6 +2,8 @@ from other_public_scraper.models import UrlCandidate
 from other_public_scraper.url_heuristics import (
     filter_and_sort_candidates,
     is_rejected_url,
+    looks_like_listing_url,
+    looks_like_product_url,
     url_quality_score,
 )
 
@@ -16,7 +18,11 @@ def test_reject_compare_and_foreign_urls():
 
 def test_prefer_ru_product_urls():
     candidates = [
-        UrlCandidate(url="https://www.apple.com/sg/iphone/compare", domain="apple.com", title="Compare"),
+        UrlCandidate(
+            url="https://www.apple.com/sg/iphone/compare",
+            domain="apple.com",
+            title="Compare",
+        ),
         UrlCandidate(
             url="https://www.dns-shop.ru/product/abc/smartfon-apple-iphone-se",
             domain="dns-shop.ru",
@@ -37,6 +43,17 @@ def test_url_quality_product_beats_catalog():
     product = url_quality_score("https://citilink.ru/product/iphone-se-123/")
     catalog = url_quality_score("https://re-store.ru/smartfony/apple/iphone-se/")
     assert product > catalog
+
+
+def test_model_family_catalog_is_not_product_url():
+    catalog = "https://www.re-store.ru/catalog/iphone-16/"
+    product = "https://www.re-store.ru/catalog/iphone-16-128gb-black/"
+
+    assert not looks_like_product_url(catalog)
+    assert looks_like_listing_url(catalog)
+    assert url_quality_score(catalog) < 0
+    assert looks_like_product_url(product)
+    assert url_quality_score(product) >= 0
 
 
 def test_rejects_beeline_service_tariff_pages():

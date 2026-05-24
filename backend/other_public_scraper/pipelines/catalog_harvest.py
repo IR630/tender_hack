@@ -12,25 +12,13 @@ from selectolax.parser import HTMLParser
 from other_public_scraper.config import settings
 from other_public_scraper.models import UrlCandidate
 from other_public_scraper.transport import fetch_html
-from other_public_scraper.url_heuristics import is_rejected_url
-
-logger = logging.getLogger(__name__)
-
-_PRODUCT_PATH_RE = re.compile(
-    r"(?:"
-    r"/product[s]?/"
-    r"|/goods/"
-    r"|/item/"
-    r"|/tovar/"
-    r"|/card/"
-    r"|/catalog/\d+"
-    r"|/razmer/"
-    r")",
-    re.IGNORECASE,
+from other_public_scraper.url_heuristics import (
+    is_rejected_url,
+    looks_like_listing_url,
+    looks_like_product_url,
 )
 
-_TIRE_SIZE_RE = re.compile(r"\d{3}[-/]\d{2}[-/]R?\d{2}", re.IGNORECASE)
-_NUMERIC_ID_RE = re.compile(r"/\d{5,}")
+logger = logging.getLogger(__name__)
 
 _CATALOG_PATH_RE = re.compile(
     r"(?:"
@@ -78,33 +66,15 @@ def _is_product_url(url: str) -> bool:
     path = urlparse(url).path
     if _SKIP_PATH_RE.search(path):
         return False
-    lowered = path.lower()
-    if "/all_sizes/" in lowered or "/category/" in lowered:
+    if "/all_sizes/" in path.lower() or "/category/" in path.lower():
         return False
-    if _TIRE_SIZE_RE.search(path):
-        return True
-    if _NUMERIC_ID_RE.search(path):
-        return True
-    if _PRODUCT_PATH_RE.search(path):
-        return True
-    segments = [part for part in path.split("/") if part]
-    if "catalog" in segments and segments[-1]:
-        last = segments[-1]
-        if last.lower() in _CATEGORY_SLUGS or last.lower().startswith("brand_"):
-            return False
-        if len(segments) == 2:
-            return True
-        if last.isdigit() or re.search(r"\d{4,}", last):
-            return True
-        if len(segments) >= 5 and re.search(r"\d", last):
-            return True
-    return False
+    return looks_like_product_url(url)
 
 
 def _needs_expansion(url: str) -> bool:
     if is_rejected_url(url):
         return False
-    return not _is_product_url(url)
+    return looks_like_listing_url(url)
 
 
 def _extract_links(html: str, base_url: str) -> tuple[list[str], list[str]]:
@@ -131,7 +101,7 @@ def _extract_links(html: str, base_url: str) -> tuple[list[str], list[str]]:
         seen.add(full)
         if _is_product_url(full):
             products.append(full)
-        elif _CATALOG_PATH_RE.search(urlparse(full).path) or urlparse(full).path in ("", "/"):
+        elif looks_like_listing_url(full) or _CATALOG_PATH_RE.search(urlparse(full).path):
             catalogs.append(full)
 
     for match in _RE_STORE_CATALOG_RE.finditer(html):
@@ -199,10 +169,16 @@ async def expand_listing_candidates(
     *,
     per_listing: int | None = None,
     max_depth: int | None = None,
+    max_listings: int | None = None,
 ) -> list[UrlCandidate]:
     """Replace listing/homepage URLs with product URLs discovered via shallow crawl."""
     per_listing = per_listing or settings.other_catalog_harvest_per_listing
     max_depth = max_depth if max_depth is not None else settings.other_catalog_harvest_depth
+    max_listings = (
+        max_listings
+        if max_listings is not None
+        else settings.other_catalog_harvest_max_listings
+    )
     listings = [c for c in candidates if _needs_expansion(c.url)]
     direct = [c for c in candidates if not _needs_expansion(c.url)]
     if not listings:
@@ -211,7 +187,7 @@ async def expand_listing_candidates(
     harvested_groups = await asyncio.gather(
         *[
             _harvest_one(item, per_listing=per_listing, max_depth=max_depth)
-            for item in listings[: settings.other_catalog_harvest_max_listings]
+            for item in listings[:max_listings]
         ]
     )
     harvested: list[UrlCandidate] = []
@@ -224,7 +200,7 @@ async def expand_listing_candidates(
             seen.add(key)
             harvested.append(item)
 
-    merged = direct + listings[: min(4, len(listings))] + harvested
+    merged = direct + listings[: min(max_listings, len(listings))] + harvested
     seen_merge: set[str] = set()
     deduped: list[UrlCandidate] = []
     for item in merged:

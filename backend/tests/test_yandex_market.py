@@ -197,7 +197,7 @@ def test_collect_paginated_products_stops_on_duplicates() -> None:
     assert products[0].title.startswith("Смартфон Apple iPhone 15")
 
 
-def test_collect_paginated_products_stops_on_garbage() -> None:
+def test_collect_paginated_products_keeps_first_results_without_garbage_filter() -> None:
     pages = {
         1: SAMPLE_HTML,
         2: GARBAGE_HTML,
@@ -209,7 +209,8 @@ def test_collect_paginated_products_stops_on_garbage() -> None:
         return pages.get(page, "")
 
     products = _collect_paginated_products(fetch, "iphone 15", max_pages=10)
-    assert len(products) == 1
+    assert len(products) == 2
+    assert products[1].title.startswith("Чехол для iPhone 15")
 
 
 _UNIQUE_BRANDS = (
@@ -238,8 +239,8 @@ def test_collect_paginated_products_caps_at_max_results() -> None:
         return page_html if page == 1 else ""
 
     products = _collect_paginated_products(fetch, "телефон", max_pages=3)
-    assert len(products) == MAX_RESULTS == 20
-    # Order is preserved (first 20 of the input feed).
+    assert len(products) == MAX_RESULTS == 15
+    # Order is preserved (first 15 of the input feed).
     for index, product in enumerate(products):
         assert product.product_url.endswith(f"/card/phone/{index}")
 
@@ -257,7 +258,7 @@ def test_collect_paginated_products_caps_across_pages() -> None:
         return pages.get(page, "")
 
     products = _collect_paginated_products(fetch, "телефон", max_pages=3)
-    assert len(products) == MAX_RESULTS == 20
+    assert len(products) == MAX_RESULTS == 15
 
 
 def test_collect_paginated_products_keeps_going_while_relevant() -> None:

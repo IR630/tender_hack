@@ -12,6 +12,7 @@ from other_public_scraper.scraper import search_other
 
 logger = logging.getLogger(__name__)
 
+settings = other_settings
 _last_error: str | None = None
 
 
@@ -59,8 +60,13 @@ async def _run_search(query: str, region: str, *, on_partial=None) -> list[Produ
             except Exception:
                 pass
 
+    search_coro = (
+        search_other(query, region, on_partial=raw_on_partial)
+        if raw_on_partial
+        else search_other(query, region)
+    )
     raw = await asyncio.wait_for(
-        search_other(query, region, on_partial=raw_on_partial),
+        search_coro,
         timeout=other_settings.other_search_timeout_seconds,
     )
     products = [_to_product(item) for item in raw]

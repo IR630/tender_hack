@@ -436,7 +436,9 @@ def _parse_search_html(html: str) -> list[Product]:
         if not title:
             continue
 
-        price_el = article.css_first('[data-auto="snippet-price-current"], [data-auto="price-value"]')
+        price_el = article.css_first(
+            '[data-auto="snippet-price-current"], [data-auto="price-value"]'
+        )
         link_el = article.css_first('a[href*="/product/"], a[href*="/card/"]')
         img_el = article.css_first("img")
         reviews_el = article.css_first('[data-auto="reviews"]')
@@ -496,9 +498,6 @@ def _classify_listing(
 
     if any(_is_similar_title(product.title, seen_title) for seen_title in seen_titles):
         return "duplicate"
-
-    if _is_garbage_listing(product.title, query):
-        return "garbage"
 
     return "accepted"
 
@@ -664,7 +663,10 @@ async def _fetch_with_playwright(query: str, yandex_market_id: int) -> list[Prod
         await page.wait_for_timeout(1500)
 
         for page_num in range(1, settings.ym_search_max_pages + 1):
-            search_url = f"{BASE_URL}/search?text={quote_plus(query)}&page={page_num}&lr={yandex_market_id}"
+            search_url = (
+                f"{BASE_URL}/search?text={quote_plus(query)}"
+                f"&page={page_num}&lr={yandex_market_id}"
+            )
             await page.goto(search_url, wait_until="networkidle", timeout=60000)
             html = await page.content()
             if _is_blocked(html):

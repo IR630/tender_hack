@@ -217,6 +217,7 @@ async def navigate_and_get_html(
     wait_seconds: float,
     require_products: bool = False,
     require_product_detail: bool = False,
+    on_products_html: Callable[[str], Awaitable[None]] | None = None,
 ) -> tuple[str, str | None]:
     tab = await browser.get(url)
     if require_product_detail:
@@ -243,6 +244,58 @@ async def navigate_and_get_html(
         except Exception:
             pass
     if ok:
+        if require_products:
+            target = min(settings.ozon_browser_max_results, settings.search_max_results_per_source)
+            best_html = html or ""
+            best_count = len(
+                extract_products(
+                    best_html,
+                    max_results=settings.ozon_browser_max_results,
+                )
+            )
+            partial_target = min(5, target)
+            partial_emitted = False
+            if on_products_html and best_count >= partial_target:
+                try:
+                    await on_products_html(best_html)
+                    partial_emitted = True
+                except Exception:
+                    pass
+            for round_index in range(settings.ozon_browser_scroll_rounds):
+                if best_count >= target:
+                    break
+                try:
+                    await tab.scroll_down(1400)
+                    await tab.sleep(settings.ozon_browser_scroll_pause_seconds)
+                    current_html = await tab.get_content()
+                except Exception:
+                    break
+                current_count = len(
+                    extract_products(
+                        current_html or "",
+                        max_results=settings.ozon_browser_max_results,
+                    )
+                )
+                if current_count > best_count:
+                    best_html = current_html or best_html
+                    best_count = current_count
+                    if (
+                        on_products_html
+                        and not partial_emitted
+                        and best_count >= partial_target
+                    ):
+                        try:
+                            await on_products_html(best_html)
+                            partial_emitted = True
+                        except Exception:
+                            pass
+                struct_logger.info(
+                    "ozon_search_scroll",
+                    round=round_index + 1,
+                    products=best_count,
+                    target=target,
+                )
+            html = best_html
         return html, None
     if _is_challenge(html or ""):
         return html or "", "waf"
@@ -340,6 +393,7 @@ async def _run_browser_session(
     require_products: bool = False,
     require_product_detail: bool = False,
     city_name: str | None = None,
+    on_products_html: Callable[[str], Awaitable[None]] | None = None,
 ) -> tuple[str, str | None]:
     async def _handler(browser: uc.Browser) -> tuple[str, str | None]:
         return await navigate_and_get_html(
@@ -348,6 +402,7 @@ async def _run_browser_session(
             wait_seconds=wait_seconds,
             require_products=require_products,
             require_product_detail=require_product_detail,
+            on_products_html=on_products_html,
         )
 
     extra_timeout = 30.0 if require_product_detail else 20.0
@@ -371,6 +426,7 @@ async def _fetch_url_uncached(
     require_products: bool = False,
     require_product_detail: bool = False,
     city_name: str | None = None,
+    on_products_html: Callable[[str], Awaitable[None]] | None = None,
 ) -> tuple[str, str | None]:
     html, error = await _run_browser_session(
         url,
@@ -379,6 +435,7 @@ async def _fetch_url_uncached(
         require_products=require_products,
         require_product_detail=require_product_detail,
         city_name=city_name,
+        on_products_html=on_products_html,
     )
     if error == "timeout":
         struct_logger.warning(
@@ -392,11 +449,11 @@ async def _fetch_url_uncached(
 
 
 async def _fetch_search_html_uncached(
-    query: str, region: str | None = None
+    query: str,
+    region: str | None = None,
+    *,
+    on_products_html: Callable[[str], Awaitable[None]] | None = None,
 ) -> tuple[str, str | None]:
-    from app.core.regions import resolve_region
-
-    city_name = resolve_region(region).ozon_city_name
     search_url = f"https://www.ozon.ru/search/?text={quote_plus(query)}"
     return await _fetch_url_uncached(
         search_url,
@@ -404,7 +461,7 @@ async def _fetch_search_html_uncached(
         timeout_seconds=settings.ozon_browser_total_timeout_seconds,
         wait_seconds=settings.ozon_browser_wait_seconds,
         require_products=True,
-        city_name=city_name,
+        on_products_html=on_products_html,
     )
 
 
@@ -423,12 +480,18 @@ async def search_products(
     *,
     region: str | None = None,
     skip_cache: bool = False,
+    on_partial_raw: Callable[[list[dict[str, Any]]], Awaitable[None]] | None = None,
 ) -> tuple[list[dict[str, Any]], str | None, str | None]:
     """Return (products, error_message, source_status)."""
     if settings.ozon_two_stage_enabled:
         from app.scrapers.two_stage_ozon import parser as two_stage_parser
 
-        return await two_stage_parser.search(query, skip_cache=skip_cache)
+        return await two_stage_parser.search(
+            query,
+            region=region,
+            skip_cache=skip_cache,
+            on_partial_raw=on_partial_raw,
+        )
 
     cache_key = f"{region or 'default'}:{query}"
     if settings.ozon_browser_cache_enabled and not skip_cache:
@@ -436,7 +499,18 @@ async def search_products(
         if cached is not None:
             return cached, None, None
 
-    html, error = await _fetch_search_html_uncached(query, region)
+    async def _emit_partial_from_html(partial_html: str) -> None:
+        if not on_partial_raw:
+            return
+        products = extract_products(partial_html, max_results=5)
+        if products:
+            await on_partial_raw(products)
+
+    html, error = await _fetch_search_html_uncached(
+        query,
+        region,
+        on_products_html=_emit_partial_from_html if on_partial_raw else None,
+    )
     if error in ("timeout", "waf"):
         return _waf_block_result()
     if error:

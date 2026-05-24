@@ -62,4 +62,8 @@ def search_query_variants(query: str) -> list[str]:
         _add(f"{original} купить")
         _add("оправы для очков")
 
+    _add(f"{original} купить")
+    _add(f"{original} цена")
+    _add(f"{original} интернет-магазин")
+
     return variants

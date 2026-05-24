@@ -84,16 +84,30 @@ class TwoStageOzonParser:
         query: str,
         *,
         category_id: str | None = None,
+        region: str | None = None,
         skip_cache: bool = False,
+        on_partial_raw=None,
     ) -> tuple[list[dict[str, Any]], str | None, str | None]:
+        cache_key = f"{region or 'default'}:{query}"
         if settings.ozon_browser_cache_enabled and not skip_cache:
             from cache_manager import get_cached_products
 
-            cached = get_cached_products(query)
+            cached = get_cached_products(cache_key)
             if cached is not None:
                 return cached, None, None
 
         search_url = _build_search_url(query, category_id)
+        partial_emitted = False
+
+        async def emit_partial_from_html(search_html: str) -> None:
+            nonlocal partial_emitted
+            if partial_emitted or not on_partial_raw:
+                return
+            previews = extract_broad_search_products(search_html, max_results=5)
+            if not previews:
+                return
+            partial_emitted = True
+            await on_partial_raw([_preview_to_product(preview) for preview in previews])
 
         async def pipeline(browser) -> tuple[list[dict[str, Any]], str | None]:
             search_html, search_error = await ozon_browser.navigate_and_get_html(
@@ -101,6 +115,7 @@ class TwoStageOzonParser:
                 search_url,
                 wait_seconds=settings.ozon_browser_wait_seconds,
                 require_products=True,
+                on_products_html=emit_partial_from_html if on_partial_raw else None,
             )
             if search_error:
                 return [], search_error
@@ -178,14 +193,21 @@ class TwoStageOzonParser:
 
             return products, None
 
-        products, error = await ozon_browser.run_browser_pipeline(query, pipeline)
+        products, error = await ozon_browser.run_browser_pipeline(
+            query,
+            pipeline,
+        )
         if error or products is None:
             return _map_pipeline_error(error)
 
         if settings.ozon_browser_cache_enabled:
             from cache_manager import set_cached_products
 
-            set_cached_products(query, products, ttl=settings.ozon_browser_cache_ttl_seconds)
+            set_cached_products(
+                cache_key,
+                products,
+                ttl=settings.ozon_browser_cache_ttl_seconds,
+            )
 
         return products, None, None
 

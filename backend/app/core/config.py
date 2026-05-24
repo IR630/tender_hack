@@ -58,15 +58,17 @@ class Settings(BaseSettings):
     ym_cache_enabled: bool = True
     ym_search_max_pages: int = 3
     ozon_use_browser: bool = True
-    ozon_browser_wait_seconds: float = 12.0
+    ozon_browser_wait_seconds: float = 8.0
     ozon_browser_total_timeout_seconds: float = 45.0
-    ozon_browser_warmup_home: bool = True
+    ozon_browser_warmup_home: bool = False
     ozon_browser_warmup_seconds: float = 8.0
     ozon_browser_max_retries: int = 1
     ozon_browser_retry_delay_seconds: float = 3.0
     # Headless Chromium is blocked by Ozon WAF on first request; keep False for demo/host API.
     ozon_browser_headless: bool = False
     ozon_browser_max_results: int = 20
+    ozon_browser_scroll_rounds: int = 1
+    ozon_browser_scroll_pause_seconds: float = 0.35
     ozon_two_stage_enabled: bool = True
     ozon_broad_search_max: int = 48
     ozon_ml_top_k: int = 20
@@ -89,8 +91,8 @@ class Settings(BaseSettings):
     other_search_timeout_seconds: float = 90.0
     other_fetch_concurrency: int = 4
     other_cache_enabled: bool = False
-    other_max_results: int = 20
-    search_max_results_per_source: int = 20
+    other_max_results: int = 15
+    search_max_results_per_source: int = 15
     # Comma-separated: wildberries,yandex_market,other,ozon — для отладки: other
     search_enabled_sources: str = "wildberries,yandex_market,other,ozon"
 

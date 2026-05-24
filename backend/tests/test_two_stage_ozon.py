@@ -32,7 +32,7 @@ async def test_two_stage_pipeline_search() -> None:
     </script>
     """
 
-    async def fake_pipeline(label, handler, timeout_seconds=None):
+    async def fake_pipeline(label, handler, timeout_seconds=None, city_name=None):
         products, error = await handler(object())
         return products, error
 
@@ -86,7 +86,7 @@ async def test_two_stage_skips_enrich_when_disabled() -> None:
     </div>
     """
 
-    async def fake_pipeline(label, handler, timeout_seconds=None):
+    async def fake_pipeline(label, handler, timeout_seconds=None, city_name=None):
         products, error = await handler(object())
         return products, error
 
@@ -132,7 +132,7 @@ async def test_two_stage_enrich_stops_on_captcha() -> None:
     """
     captcha_html = "<html><title>Antibot Captcha</title><body>antibot</body></html>"
 
-    async def fake_pipeline(label, handler, timeout_seconds=None):
+    async def fake_pipeline(label, handler, timeout_seconds=None, city_name=None):
         products, error = await handler(object())
         return products, error
 

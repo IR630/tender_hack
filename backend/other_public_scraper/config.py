@@ -34,6 +34,9 @@ DOMAIN_BLACKLIST = {
     "drom.ru",
     "baza.drom.ru",
     "pepper.ru",
+    "2gis.ru",
+    "zoon.ru",
+    "be-in.ru",
 }
 
 PRECRAWL_DOMAINS = (
@@ -96,17 +99,29 @@ class OtherPublicSettings(BaseSettings):
         default=250, validation_alias="OTHER_PRECRAWL_MAX_PER_DOMAIN"
     )
     other_llm_enabled: bool = Field(default=False, validation_alias="OTHER_LLM_ENABLED")
-    other_meili_read_enabled: bool = Field(default=False, validation_alias="OTHER_MEILI_READ_ENABLED")
+    other_meili_read_enabled: bool = Field(
+        default=False, validation_alias="OTHER_MEILI_READ_ENABLED"
+    )
     other_ddg_enabled: bool = Field(default=True, validation_alias="OTHER_DDG_ENABLED")
-    other_ddg_timeout_seconds: float = Field(default=4.0, validation_alias="OTHER_DDG_TIMEOUT_SECONDS")
+    other_ddg_timeout_seconds: float = Field(
+        default=4.0, validation_alias="OTHER_DDG_TIMEOUT_SECONDS"
+    )
     other_yahoo_enabled: bool = Field(default=True, validation_alias="OTHER_YAHOO_ENABLED")
-    other_yahoo_timeout_seconds: float = Field(default=8.0, validation_alias="OTHER_YAHOO_TIMEOUT_SECONDS")
-    other_bing_fallback_enabled: bool = Field(default=False, validation_alias="OTHER_BING_FALLBACK_ENABLED")
-    other_bing_timeout_seconds: float = Field(default=4.0, validation_alias="OTHER_BING_TIMEOUT_SECONDS")
+    other_yahoo_timeout_seconds: float = Field(
+        default=8.0, validation_alias="OTHER_YAHOO_TIMEOUT_SECONDS"
+    )
+    other_bing_fallback_enabled: bool = Field(
+        default=True, validation_alias="OTHER_BING_FALLBACK_ENABLED"
+    )
+    other_bing_timeout_seconds: float = Field(
+        default=4.0, validation_alias="OTHER_BING_TIMEOUT_SECONDS"
+    )
     other_catalog_harvest_per_listing: int = Field(
         default=8, validation_alias="OTHER_CATALOG_HARVEST_PER_LISTING"
     )
-    other_catalog_harvest_depth: int = Field(default=2, validation_alias="OTHER_CATALOG_HARVEST_DEPTH")
+    other_catalog_harvest_depth: int = Field(
+        default=2, validation_alias="OTHER_CATALOG_HARVEST_DEPTH"
+    )
     other_catalog_harvest_max_listings: int = Field(
         default=4, validation_alias="OTHER_CATALOG_HARVEST_MAX_LISTINGS"
     )
@@ -120,7 +135,7 @@ class OtherPublicSettings(BaseSettings):
     other_title_similarity_threshold: float = Field(
         default=0.40, validation_alias="OTHER_TITLE_SIMILARITY_THRESHOLD"
     )
-    other_max_results: int = Field(default=20, validation_alias="OTHER_MAX_RESULTS")
+    other_max_results: int = Field(default=15, validation_alias="OTHER_MAX_RESULTS")
     other_max_per_domain: int = Field(
         default=5, validation_alias="OTHER_MAX_PER_DOMAIN"
     )
@@ -128,7 +143,7 @@ class OtherPublicSettings(BaseSettings):
     other_listing_products_per_page: int = Field(
         default=16, validation_alias="OTHER_LISTING_PRODUCTS_PER_PAGE"
     )
-    other_max_searxng_urls: int = Field(default=20, validation_alias="OTHER_MAX_SEARXNG_URLS")
+    other_max_searxng_urls: int = Field(default=45, validation_alias="OTHER_MAX_SEARXNG_URLS")
 
 
 settings = OtherPublicSettings()
